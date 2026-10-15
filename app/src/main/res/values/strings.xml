@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Smarter</string>
+    <string name="accessibility_service_label">Smarter app blocker</string>
+    <string name="accessibility_service_description">Smarter uses this to see which app is open, so it can count time in the apps you chose to limit and show a chess puzzle when your time is up. It does not read what is on your screen.</string>
+</resources>
