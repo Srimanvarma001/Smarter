@@ -157,7 +157,7 @@ class MainActivity : Activity() {
         blockerOffCard.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(body("Greyed out? Allow restricted settings in App info (⋮ menu) first.", 13f, R.color.text_secondary), weighted())
+            addView(body("Greyed out? In App info, open the three-dot menu and allow restricted settings first.", 13f, R.color.text_secondary), weighted())
             addView(pillButton("App info", ButtonStyle.OUTLINE, small = true) {
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
             }, wrap(dp(12)))
@@ -206,7 +206,7 @@ class MainActivity : Activity() {
             val text = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 addView(name)
-                addView(label("${day.usedMs / UsageLedger.MINUTE_MS} / ${limitMs / UsageLedger.MINUTE_MS} min$unlocks"), matchWidth(dp(3)))
+                addView(label("${minOf(day.usedMs, limitMs) / UsageLedger.MINUTE_MS} / ${limitMs / UsageLedger.MINUTE_MS} min$unlocks"), matchWidth(dp(3)))
                 addView(bar, wrap().apply { topMargin = dp(9) })
             }
             appsCard.addView(LinearLayout(this).apply {

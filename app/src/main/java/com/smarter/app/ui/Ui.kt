@@ -40,10 +40,11 @@ fun Context.appLabel(packageName: String): String = try {
     packageName
 }
 
-fun Context.appIcon(packageName: String): Drawable? = try {
-    packageManager.getApplicationIcon(packageName)
+/** The app's icon, or a letter badge if it can't be loaded (e.g. the app was uninstalled). */
+fun Context.appIcon(packageName: String): Drawable = try {
+    packageManager.getApplicationInfo(packageName, 0).loadIcon(packageManager)
 } catch (e: Exception) {
-    null
+    LetterIconDrawable(appLabel(packageName).first().uppercaseChar(), colorOf(R.color.track), colorOf(R.color.text_primary), Fonts.monoBold(this))
 }
 
 object Fonts {
@@ -306,6 +307,36 @@ class CardDrawable(
         paint.strokeWidth = strokeWidth
         paint.color = stroke
         canvas.drawRoundRect(rect, radius, radius, paint)
+    }
+
+    override fun setAlpha(alpha: Int) = Unit
+    override fun setColorFilter(colorFilter: ColorFilter?) = Unit
+
+    @Deprecated("Deprecated in Java")
+    override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+}
+
+/** A rounded-square badge with one letter, used when an app icon is unavailable. */
+class LetterIconDrawable(
+    private val letter: Char,
+    private val background: Int,
+    private val foreground: Int,
+    typeface: Typeface,
+) : Drawable() {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.typeface = typeface
+        textAlign = Paint.Align.CENTER
+    }
+    private val rect = RectF()
+
+    override fun draw(canvas: Canvas) {
+        rect.set(bounds)
+        val radius = rect.width() * 0.3f
+        paint.color = background
+        canvas.drawRoundRect(rect, radius, radius, paint)
+        paint.color = foreground
+        paint.textSize = rect.height() * 0.45f
+        canvas.drawText(letter.toString(), rect.centerX(), rect.centerY() - (paint.descent() + paint.ascent()) / 2, paint)
     }
 
     override fun setAlpha(alpha: Int) = Unit

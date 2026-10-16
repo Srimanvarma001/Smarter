@@ -9,6 +9,8 @@ import android.content.pm.PackageInfo
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Looper
+import android.view.ViewGroup
+import android.widget.ScrollView
 import com.smarter.app.ui.AppPickerActivity
 import com.smarter.app.ui.MainActivity
 import com.smarter.app.ui.PuzzleActivity
@@ -52,6 +54,10 @@ class ScreenshotTest {
         repeat(4) { app.settings.recordSolved() }
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         save(activity, "1-dashboard")
+        // The rules further down the page.
+        val scroll = activity.findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as ScrollView
+        scroll.scrollTo(0, scroll.getChildAt(0).height)
+        save(activity, "1b-dashboard-rules")
     }
 
     @Test

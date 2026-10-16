@@ -192,7 +192,7 @@
       <h3><span class="led red"></span>BLOCKER IS OFF</h3>
       <p>Turn on “Smarter app blocker” in Accessibility settings so Smarter can tell which app is open. It never reads your screen.</p>
       <button class="btn primary" id="enable">Turn on blocker</button>
-      <p class="hint">Greyed out? Open App info → ⋮ → Allow restricted settings first.</p>
+      <p class="hint">Greyed out? In App info, open the three-dot menu and allow restricted settings first.</p>
     </div>
 
     <div class="card hero dotgrid">
@@ -451,7 +451,7 @@ function renderHome() {
       const unlocks = d.unlocks ? ` · ${d.unlocks} UNLOCK${d.unlocks > 1 ? "S" : ""}` : "";
       return `<div class="app-row">${iconHtml(app)}<div class="app-main">
           <div class="app-name">${app.name}${locked ? '<span class="tag">LOCKED</span>' : ""}</div>
-          <div class="label" style="margin-top:3px">${fmtMin(d.usedMs)} / ${fmtMin(limit)} MIN${unlocks}</div>
+          <div class="label" style="margin-top:3px">${fmtMin(Math.min(d.usedMs, limit))} / ${fmtMin(limit)} MIN${unlocks}</div>
           <div class="dots ${locked ? "locked" : ""}">${dots}</div></div>
         <button class="open" data-open="${app.id}">OPEN</button></div>`;
     }).join("");
