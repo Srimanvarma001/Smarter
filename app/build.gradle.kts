@@ -27,6 +27,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    testOptions {
+        // Robolectric renders the real screens on the JVM (see ScreenshotTest).
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 kotlin {
@@ -37,4 +42,7 @@ kotlin {
 
 dependencies {
     implementation(project(":core"))
+
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
 }

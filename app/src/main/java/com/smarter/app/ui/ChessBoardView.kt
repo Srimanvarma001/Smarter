@@ -4,14 +4,17 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color as AndroidColor
+import android.graphics.Outline
 import android.graphics.Paint
 import android.graphics.RadialGradient
-import android.graphics.Rect
 import android.graphics.Shader
-import android.graphics.Typeface
+import android.graphics.drawable.Drawable
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewOutlineProvider
 import android.view.animation.DecelerateInterpolator
+import com.smarter.app.R
 import com.smarter.core.chess.Color
 import com.smarter.core.chess.Move
 import com.smarter.core.chess.Piece
@@ -20,8 +23,8 @@ import com.smarter.core.chess.Position
 import com.smarter.core.chess.Square
 
 /**
- * A chessboard you can play on by tapping or dragging. Pieces are drawn with the Unicode chess
- * glyphs, so no image assets are needed.
+ * A chessboard you can play on by tapping or dragging. Monochrome squares with red
+ * highlights, and the chessnut piece set as vector drawables so it is sharp at any size.
  */
 class ChessBoardView(context: Context) : View(context) {
     /** Called with a legal move made by the user. */
@@ -50,11 +53,13 @@ class ChessBoardView(context: Context) : View(context) {
             invalidate()
         }
 
-    private var position: Position = Position.initial()
+    var position: Position = Position.initial()
+        private set
     private var lastMove: Move? = null
     private var selected = -1
     private var targets: List<Move> = emptyList()
     private var dragging = false
+    private var dragMoved = false
     /** A second tap on the selected piece (without dragging it away) deselects it. */
     private var deselectOnTap = false
     private var dragX = 0f
@@ -64,13 +69,24 @@ class ChessBoardView(context: Context) : View(context) {
     private var animationProgress = 1f
     private var animator: ValueAnimator? = null
 
-    private val squarePaint = Paint()
-    private val overlayPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val coordinatePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.DEFAULT_BOLD }
-    private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.LEFT }
-    private val glyphBounds = Rect()
+    private val lightSquare = context.colorOf(R.color.square_light)
+    private val darkSquare = context.colorOf(R.color.square_dark)
+    private val accent = context.colorOf(R.color.accent)
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val coordinatePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.monoBold(context) }
+    private val pieces = HashMap<Piece, Drawable>()
 
     private val squareSize get() = width / 8f
+
+    init {
+        // Rounded corners, clipped by the view outline.
+        outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, context.dpf(10f))
+            }
+        }
+        clipToOutline = true
+    }
 
     fun setPosition(position: Position, lastMove: Move?, animate: Boolean = false) {
         animator?.cancel()
@@ -131,134 +147,145 @@ class ChessBoardView(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         val size = squareSize
+        paint.style = Paint.Style.FILL
+        paint.shader = null
         for (sq in 0 until 64) {
             val left = squareLeft(sq)
             val top = squareTop(sq)
             val light = (Square.file(sq) + Square.rank(sq)) % 2 == 1
-            squarePaint.color = if (light) LIGHT_SQUARE else DARK_SQUARE
-            canvas.drawRect(left, top, left + size, top + size, squarePaint)
+            paint.color = if (light) lightSquare else darkSquare
+            canvas.drawRect(left, top, left + size, top + size, paint)
 
-            val highlight = when {
-                sq == selected -> SELECTED
-                lastMove?.let { sq == it.from || sq == it.to } == true -> LAST_MOVE
-                else -> null
+            val overlayAlpha = when {
+                sq == selected -> 0x80
+                lastMove?.let { sq == it.from || sq == it.to } == true -> 0x48
+                else -> 0
             }
-            if (highlight != null) {
-                overlayPaint.style = Paint.Style.FILL
-                overlayPaint.shader = null
-                overlayPaint.color = highlight
-                canvas.drawRect(left, top, left + size, top + size, overlayPaint)
+            if (overlayAlpha > 0) {
+                paint.color = withAlpha(accent, overlayAlpha)
+                canvas.drawRect(left, top, left + size, top + size, paint)
             }
         }
 
         drawCoordinates(canvas)
         drawCheck(canvas)
         drawHint(canvas)
+        drawTargets(canvas)
 
         for (sq in 0 until 64) {
             val piece = position[sq] ?: continue
-            if (dragging && sq == selected) continue
+            if (dragging && dragMoved && sq == selected) continue
             val move = animatedMove
             if (move != null && sq == move.to && animationProgress < 1f) continue
-            drawPiece(canvas, piece, squareLeft(sq) + size / 2, squareTop(sq) + size / 2, size)
+            drawPiece(canvas, piece, squareLeft(sq), squareTop(sq), size)
         }
-
-        drawTargets(canvas)
 
         val move = animatedMove
         if (move != null && animationProgress < 1f) {
             position[move.to]?.let { piece ->
                 val x = squareLeft(move.from) + (squareLeft(move.to) - squareLeft(move.from)) * animationProgress
                 val y = squareTop(move.from) + (squareTop(move.to) - squareTop(move.from)) * animationProgress
-                drawPiece(canvas, piece, x + size / 2, y + size / 2, size)
+                drawPiece(canvas, piece, x, y, size)
             }
         }
-        if (dragging && selected >= 0) {
-            position[selected]?.let { drawPiece(canvas, it, dragX, dragY - size * 0.4f, size * 1.25f) }
+        if (dragging && dragMoved && selected >= 0) {
+            // The dragged piece is drawn larger and above the finger so it stays visible.
+            val big = size * 1.25f
+            position[selected]?.let { drawPiece(canvas, it, dragX - big / 2, dragY - big / 2 - size * 0.45f, big) }
         }
     }
 
     private fun drawCoordinates(canvas: Canvas) {
         val size = squareSize
-        coordinatePaint.textSize = size * 0.2f
+        coordinatePaint.textSize = size * 0.19f
         for (i in 0..7) {
             // Rank numbers down the left edge, file letters along the bottom edge.
             val rankSq = if (whiteAtBottom) Square.of(0, i) else Square.of(7, i)
-            coordinatePaint.color = if ((Square.file(rankSq) + i) % 2 == 1) DARK_SQUARE else LIGHT_SQUARE
-            canvas.drawText("${i + 1}", squareLeft(rankSq) + size * 0.06f, squareTop(rankSq) + size * 0.24f, coordinatePaint)
+            coordinatePaint.color = if ((Square.file(rankSq) + i) % 2 == 1) darkSquare else lightSquare
+            canvas.drawText("${i + 1}", squareLeft(rankSq) + size * 0.06f, squareTop(rankSq) + size * 0.22f, coordinatePaint)
 
             val fileSq = if (whiteAtBottom) Square.of(i, 0) else Square.of(i, 7)
-            coordinatePaint.color = if ((i + Square.rank(fileSq)) % 2 == 1) DARK_SQUARE else LIGHT_SQUARE
+            coordinatePaint.color = if ((i + Square.rank(fileSq)) % 2 == 1) darkSquare else lightSquare
             val letter = "${'a' + i}"
             val textWidth = coordinatePaint.measureText(letter)
-            canvas.drawText(letter, squareLeft(fileSq) + size - textWidth - size * 0.06f, squareTop(fileSq) + size * 0.94f, coordinatePaint)
+            canvas.drawText(letter, squareLeft(fileSq) + size - textWidth - size * 0.06f, squareTop(fileSq) + size * 0.92f, coordinatePaint)
         }
     }
 
     private fun drawCheck(canvas: Canvas) {
         if (!position.isCheck()) return
         val king = position.kingSquare(position.sideToMove)
-        val cx = squareLeft(king) + squareSize / 2
-        val cy = squareTop(king) + squareSize / 2
-        overlayPaint.style = Paint.Style.FILL
-        overlayPaint.shader = RadialGradient(
+        val left = squareLeft(king)
+        val top = squareTop(king)
+        val cx = left + squareSize / 2
+        val cy = top + squareSize / 2
+        paint.style = Paint.Style.FILL
+        paint.shader = RadialGradient(
             cx, cy, squareSize * 0.7f,
-            intArrayOf(AndroidColor.argb(255, 255, 0, 0), AndroidColor.argb(170, 231, 0, 0), AndroidColor.argb(0, 169, 0, 0)),
+            intArrayOf(withAlpha(accent, 0xFF), withAlpha(accent, 0xB0), withAlpha(accent, 0)),
             floatArrayOf(0f, 0.3f, 1f),
             Shader.TileMode.CLAMP,
         )
-        canvas.drawRect(squareLeft(king), squareTop(king), squareLeft(king) + squareSize, squareTop(king) + squareSize, overlayPaint)
-        overlayPaint.shader = null
+        canvas.drawRect(left, top, left + squareSize, top + squareSize, paint)
+        paint.shader = null
     }
 
     private fun drawHint(canvas: Canvas) {
         if (hintSquare < 0) return
-        overlayPaint.style = Paint.Style.STROKE
-        overlayPaint.strokeWidth = squareSize * 0.08f
-        overlayPaint.color = HINT
-        val inset = squareSize * 0.06f
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = squareSize * 0.08f
+        paint.color = accent
+        val inset = paint.strokeWidth / 2
         canvas.drawRect(
             squareLeft(hintSquare) + inset, squareTop(hintSquare) + inset,
             squareLeft(hintSquare) + squareSize - inset, squareTop(hintSquare) + squareSize - inset,
-            overlayPaint,
+            paint,
         )
     }
 
     private fun drawTargets(canvas: Canvas) {
-        overlayPaint.color = TARGET
+        paint.color = AndroidColor.argb(0x48, 0, 0, 0)
         for (to in targets.map { it.to }.distinct()) {
             val cx = squareLeft(to) + squareSize / 2
             val cy = squareTop(to) + squareSize / 2
             if (position[to] == null) {
-                overlayPaint.style = Paint.Style.FILL
-                canvas.drawCircle(cx, cy, squareSize * 0.16f, overlayPaint)
+                paint.style = Paint.Style.FILL
+                canvas.drawCircle(cx, cy, squareSize * 0.15f, paint)
             } else {
-                overlayPaint.style = Paint.Style.STROKE
-                overlayPaint.strokeWidth = squareSize * 0.08f
-                canvas.drawCircle(cx, cy, squareSize * 0.44f, overlayPaint)
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = squareSize * 0.08f
+                canvas.drawCircle(cx, cy, squareSize * 0.44f - paint.strokeWidth / 2, paint)
             }
         }
     }
 
-    private fun drawPiece(canvas: Canvas, piece: Piece, cx: Float, cy: Float, size: Float) {
-        val solid = SOLID_GLYPHS.getValue(piece.type)
-        glyphPaint.textSize = size * 0.82f
-        glyphPaint.getTextBounds(solid, 0, solid.length, glyphBounds)
-        val x = cx - glyphBounds.exactCenterX()
-        val y = cy - glyphBounds.exactCenterY()
+    private fun drawPiece(canvas: Canvas, piece: Piece, left: Float, top: Float, size: Float) {
+        val drawable = pieces.getOrPut(piece) { requireNotNull(context.getDrawable(pieceDrawable(piece))).mutate() }
+        drawable.setBounds(left.toInt(), top.toInt(), (left + size).toInt(), (top + size).toInt())
+        drawable.draw(canvas)
+    }
 
-        glyphPaint.style = Paint.Style.FILL
-        if (piece.color == Color.WHITE) {
-            // Fill the silhouette white, then draw the outlined glyph on top for the details.
-            glyphPaint.color = AndroidColor.WHITE
-            canvas.drawText(solid, x, y, glyphPaint)
-            glyphPaint.color = PIECE_OUTLINE
-            canvas.drawText(OUTLINE_GLYPHS.getValue(piece.type), x, y, glyphPaint)
-        } else {
-            glyphPaint.color = BLACK_PIECE
-            canvas.drawText(solid, x, y, glyphPaint)
+    private fun pieceDrawable(piece: Piece): Int = if (piece.color == Color.WHITE) {
+        when (piece.type) {
+            PieceType.KING -> R.drawable.piece_wk
+            PieceType.QUEEN -> R.drawable.piece_wq
+            PieceType.ROOK -> R.drawable.piece_wr
+            PieceType.BISHOP -> R.drawable.piece_wb
+            PieceType.KNIGHT -> R.drawable.piece_wn
+            PieceType.PAWN -> R.drawable.piece_wp
+        }
+    } else {
+        when (piece.type) {
+            PieceType.KING -> R.drawable.piece_bk
+            PieceType.QUEEN -> R.drawable.piece_bq
+            PieceType.ROOK -> R.drawable.piece_br
+            PieceType.BISHOP -> R.drawable.piece_bb
+            PieceType.KNIGHT -> R.drawable.piece_bn
+            PieceType.PAWN -> R.drawable.piece_bp
         }
     }
+
+    private fun withAlpha(color: Int, alpha: Int) = (color and 0x00FFFFFF) or (alpha shl 24)
 
     // --- Input ----------------------------------------------------------------------------
 
@@ -267,6 +294,7 @@ class ChessBoardView(context: Context) : View(context) {
         val sq = squareAt(event.x, event.y)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                parent?.requestDisallowInterceptTouchEvent(true)
                 if (selected >= 0 && targets.any { it.to == sq }) {
                     tryMove(sq)
                     return true
@@ -274,19 +302,23 @@ class ChessBoardView(context: Context) : View(context) {
                 val piece = if (sq >= 0) position[sq] else null
                 val moves = if (sq >= 0) position.legalMovesFrom(sq) else emptyList()
                 if (piece != null && piece.color == position.sideToMove && moves.isNotEmpty()) {
-                    val wasSelected = sq == selected
+                    deselectOnTap = sq == selected
                     selected = sq
                     targets = moves
                     dragging = true
+                    dragMoved = false
                     dragX = event.x
                     dragY = event.y
-                    deselectOnTap = wasSelected
+                    performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                 } else {
                     clearSelection()
                 }
                 invalidate()
             }
             MotionEvent.ACTION_MOVE -> if (dragging) {
+                if (!dragMoved && Math.hypot((event.x - dragX).toDouble(), (event.y - dragY).toDouble()) > squareSize * 0.15f) {
+                    dragMoved = true
+                }
                 dragX = event.x
                 dragY = event.y
                 invalidate()
@@ -295,7 +327,7 @@ class ChessBoardView(context: Context) : View(context) {
                 dragging = false
                 when {
                     sq != selected && targets.any { it.to == sq } -> tryMove(sq)
-                    sq == selected && deselectOnTap -> clearSelection()
+                    sq == selected && deselectOnTap && !dragMoved -> clearSelection()
                 }
                 performClick()
                 invalidate()
@@ -328,26 +360,5 @@ class ChessBoardView(context: Context) : View(context) {
         targets = emptyList()
         dragging = false
         invalidate()
-    }
-
-    private companion object {
-        val LIGHT_SQUARE = AndroidColor.rgb(0xF0, 0xD9, 0xB5)
-        val DARK_SQUARE = AndroidColor.rgb(0xB5, 0x88, 0x63)
-        val LAST_MOVE = AndroidColor.argb(0x69, 0x9B, 0xC7, 0x00)
-        val SELECTED = AndroidColor.argb(0x80, 0x14, 0x55, 0x1E)
-        val TARGET = AndroidColor.argb(0x66, 0x14, 0x55, 0x1E)
-        val HINT = AndroidColor.rgb(0x2F, 0x80, 0xED)
-        val PIECE_OUTLINE = AndroidColor.rgb(0x1A, 0x1A, 0x1A)
-        val BLACK_PIECE = AndroidColor.rgb(0x1A, 0x1A, 0x1A)
-
-        // U+FE0E asks for the text (not emoji) presentation of the glyph.
-        val SOLID_GLYPHS = mapOf(
-            PieceType.KING to "♚︎", PieceType.QUEEN to "♛︎", PieceType.ROOK to "♜︎",
-            PieceType.BISHOP to "♝︎", PieceType.KNIGHT to "♞︎", PieceType.PAWN to "♟︎",
-        )
-        val OUTLINE_GLYPHS = mapOf(
-            PieceType.KING to "♔︎", PieceType.QUEEN to "♕︎", PieceType.ROOK to "♖︎",
-            PieceType.BISHOP to "♗︎", PieceType.KNIGHT to "♘︎", PieceType.PAWN to "♙︎",
-        )
     }
 }

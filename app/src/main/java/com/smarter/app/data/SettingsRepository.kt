@@ -3,6 +3,7 @@ package com.smarter.app.data
 import android.content.Context
 import com.smarter.core.blocker.BlockerSettings
 import com.smarter.core.puzzle.Difficulty
+import java.time.LocalDate
 
 class SettingsRepository(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -48,6 +49,21 @@ class SettingsRepository(context: Context) {
         prefs.edit().putString(KEY_RECENT, (recent + id).takeLast(MAX_RECENT).joinToString(",")).apply()
     }
 
+    /** Puzzles solved today (resets at local midnight). */
+    fun solvedToday(today: LocalDate = LocalDate.now()): Int =
+        if (prefs.getString(KEY_STATS_DATE, null) == today.toString()) prefs.getInt(KEY_SOLVED_TODAY, 0) else 0
+
+    val solvedAllTime: Int get() = prefs.getInt(KEY_SOLVED_ALL, 0)
+
+    @Synchronized
+    fun recordSolved(today: LocalDate = LocalDate.now()) {
+        prefs.edit()
+            .putString(KEY_STATS_DATE, today.toString())
+            .putInt(KEY_SOLVED_TODAY, solvedToday(today) + 1)
+            .putInt(KEY_SOLVED_ALL, solvedAllTime + 1)
+            .apply()
+    }
+
     private companion object {
         const val KEY_ALLOWANCE = "daily_allowance_minutes"
         const val KEY_PUZZLES = "puzzles_per_unlock"
@@ -57,6 +73,9 @@ class SettingsRepository(context: Context) {
         const val KEY_BLOCKED = "blocked_apps"
         const val KEY_ONLINE = "online_puzzles"
         const val KEY_RECENT = "recent_puzzles"
+        const val KEY_STATS_DATE = "stats_date"
+        const val KEY_SOLVED_TODAY = "solved_today"
+        const val KEY_SOLVED_ALL = "solved_all"
         const val MAX_RECENT = 200
     }
 }

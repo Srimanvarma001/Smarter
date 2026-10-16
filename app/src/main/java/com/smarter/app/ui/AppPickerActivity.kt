@@ -6,11 +6,12 @@ import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.TypedValue
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
-import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -33,15 +34,17 @@ class AppPickerActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         adapter = AppAdapter()
-        emptyText = label("Loading apps…", 15f, R.color.text_secondary).apply { gravity = Gravity.CENTER }
+        emptyText = body("Loading apps…", 15f, R.color.text_secondary).apply { gravity = Gravity.CENTER }
 
         val search = EditText(this).apply {
             hint = "Search apps"
             setSingleLine()
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             setTextColor(colorOf(R.color.text_primary))
             setHintTextColor(colorOf(R.color.text_secondary))
             background = roundedBackground(colorOf(R.color.surface), 24, colorOf(R.color.outline))
-            setPadding(dp(18), dp(12), dp(18), dp(12))
+            setPadding(dp(18), 0, dp(18), 0)
+            minHeight = dp(48)
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
@@ -54,22 +57,30 @@ class AppPickerActivity : Activity() {
         val list = ListView(this).apply {
             adapter = this@AppPickerActivity.adapter
             divider = null
+            selector = getDrawable(android.R.color.transparent)
+            isVerticalScrollBarEnabled = false
             emptyView = emptyText
-            setOnItemClickListener { _, _, position, _ -> toggle(shown[position].packageName) }
+            setOnItemClickListener { _, view, position, _ -> toggle(shown[position].packageName, view) }
         }
 
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(circleButton("←", 40, "Back") { finish() })
+            addView(dotoText("CHOOSE APPS", 30f), wrap(dp(12)))
+        }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(colorOf(R.color.background))
-            setPadding(dp(20), dp(16), dp(20), 0)
-            addView(label("Choose apps to limit", 24f, bold = true))
+            setPadding(dp(16), dp(12), dp(16), 0)
+            addView(header, matchWidth())
             addView(
-                label("Each app you pick gets its own daily free time. After that, it takes chess puzzles to unlock.", 14f, R.color.text_secondary),
-                matchWidth(dp(4)),
+                body("Each app you pick gets its own daily free time. After that, it takes chess puzzles to unlock.", 15f, R.color.text_secondary),
+                matchWidth(dp(14)),
             )
             addView(search, matchWidth(dp(16)))
             addView(emptyText, matchWidth(dp(24)))
-            addView(list, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { topMargin = dp(8) })
+            addView(list, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { topMargin = dp(6) })
         }
         fitSystemBars(root)
         setContentView(root)
@@ -103,9 +114,10 @@ class AppPickerActivity : Activity() {
         adapter.notifyDataSetChanged()
     }
 
-    private fun toggle(packageName: String) {
+    private fun toggle(packageName: String, row: View) {
         val blocked = smarter.settings.blockedApps
         smarter.settings.blockedApps = if (packageName in blocked) blocked - packageName else blocked + packageName
+        row.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
         adapter.notifyDataSetChanged()
     }
 
@@ -117,24 +129,22 @@ class AppPickerActivity : Activity() {
         override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
             val row = convertView as? LinearLayout ?: createRow()
             val entry = shown[position]
+            val blocked = entry.packageName in smarter.settings.blockedApps
             (row.getChildAt(0) as ImageView).setImageDrawable(entry.icon)
             (row.getChildAt(1) as TextView).text = entry.label
-            (row.getChildAt(2) as CheckBox).isChecked = entry.packageName in smarter.settings.blockedApps
+            (row.getChildAt(2) as CheckDot).checked = blocked
+            row.contentDescription = entry.label + if (blocked) ", limited" else ", not limited"
             return row
         }
 
         private fun createRow() = LinearLayout(this@AppPickerActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(60)
-            setPadding(dp(4), dp(8), dp(4), dp(8))
-            addView(ImageView(context), LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginEnd = dp(14) })
-            addView(label(sizeSp = 16f), weighted())
-            // The row handles clicks; the checkbox only shows the state.
-            addView(CheckBox(context).apply {
-                isClickable = false
-                isFocusable = false
-            })
+            minimumHeight = dp(66)
+            setPadding(dp(2), dp(10), dp(4), dp(10))
+            addView(ImageView(context), LinearLayout.LayoutParams(dp(42), dp(42)).apply { marginEnd = dp(14) })
+            addView(body(sizeSp = 16f, bold = true), weighted())
+            addView(CheckDot(context))
         }
     }
 }

@@ -7,6 +7,28 @@ allowance. When it runs out, the app is covered by a lock screen with a chess pu
 enough puzzles and you get a few more minutes. Every further unlock that day needs more,
 harder puzzles.
 
+## Designed for the Nothing Phone (4a)
+
+The UI follows Nothing OS's look: true-black AMOLED dark theme (light theme too, following the
+system), dot-matrix display type ([Doto](https://github.com/oliverlalan/Doto), similar to
+Nothing's NDot), Space Mono labels, monochrome surfaces with a single red accent, dot-grid
+textures and Glyph-style dot progress bars. Layouts are sized for the 4a's 6.78″ 1224 × 2720
+(20:9) screen: the board spans the full width and the puzzle buttons sit at the bottom, in
+thumb reach. Moves, correct answers and mistakes each get their own haptic feedback.
+
+## Try it in your browser
+
+`web-preview/` is a browser version of the app's screens, built from the same puzzle pack
+and rules, so you can try the flow without installing anything (on your phone or a
+desktop browser). "Open" on a blocked app simulates using it at 1 second = 1 minute so you can
+watch it lock. Run it from the repository root:
+
+```sh
+python3 -m http.server 8000   # then open http://localhost:8000/web-preview/
+```
+
+It is a preview: the real blocking only happens in the Android app.
+
 ## How it works
 
 ```
@@ -49,6 +71,7 @@ build it from the command line:
 ```sh
 ./gradlew :app:assembleDebug     # APK in app/build/outputs/apk/debug/
 ./gradlew :core:test             # unit tests for chess rules, puzzles and time budgets
+./gradlew :app:testDebugUnitTest # renders every screen (Robolectric) into app/build/screenshots
 ```
 
 Then in the app:
@@ -61,6 +84,13 @@ Then in the app:
 
 > Each CI build is signed with a fresh debug key, so to install a newer CI build over an
 > older one you must uninstall the old one first (your settings are reset).
+
+## Screenshots of the real app
+
+`app/src/test/.../ScreenshotTest.kt` renders the actual Android screens with Robolectric at
+the Nothing Phone (4a)'s resolution. Every CI build uploads them as the `screenshots`
+artifact; the manual **Screenshots** workflow (Actions tab → Screenshots → Run workflow)
+also publishes them to the `screenshots` branch.
 
 ## A bigger offline puzzle pack
 
@@ -81,8 +111,11 @@ The default of 300 puzzles per 200-point rating band gives about 3,300 puzzles (
 | Path | What's there |
 | --- | --- |
 | `core/` | Plain Kotlin, no Android: chess rules (`chess/`: legal moves, FEN, SAN), puzzles (`puzzle/`: Lichess formats, puzzle session, offline picker) and the time budget (`blocker/`: usage ledger, unlock rules, `BlockerEngine`). Unit-tested on the JVM; the move generator is checked against the standard perft counts. |
-| `app/` | The Android app, built with framework APIs only (no AndroidX): `BlockerService` (accessibility service), `PuzzleActivity` (lock screen), `ChessBoardView` (tap or drag to move), `MainActivity` (dashboard and rules), `AppPickerActivity`. |
+| `app/` | The Android app, built with framework APIs only (no AndroidX): `BlockerService` (accessibility service), `PuzzleActivity` (lock screen), `ChessBoardView` (tap or drag to move), `MainActivity` (dashboard, stats and rules), `AppPickerActivity`, and the Nothing-style widgets in `ui/Ui.kt` and `ui/Widgets.kt`. |
+| `web-preview/` | Browser preview of the app (same puzzles and rules, uses chess.js for move rules). |
 | `tools/make_puzzle_pack.py` | Builds `puzzles.csv` from the Lichess puzzle database. |
+| `tools/svg_to_vector.py` | Converts the chessnut piece SVGs into Android vector drawables. |
+| `licenses/` | Licenses for the bundled fonts, piece set and chess.js. |
 
 ## Limitations
 

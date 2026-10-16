@@ -1,0 +1,38 @@
+# Renders the app's screens at Nothing Phone (4a) resolution (see app/src/test/.../ScreenshotTest.kt)
+# and publishes them to the `screenshots` branch, so they can be viewed on GitHub or fetched with git.
+name: Screenshots
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Render screens
+        run: ./gradlew :app:testDebugUnitTest --tests '*ScreenshotTest*' --stacktrace
+
+      - name: Publish to the screenshots branch
+        run: |
+          mkdir /tmp/shots && cp app/build/screenshots/*.png /tmp/shots/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan screenshots
+          git rm -rf --quiet .
+          cp /tmp/shots/*.png .
+          printf '# Screenshots\n\nRendered by the Screenshots workflow from %s at Nothing Phone (4a) resolution (1224 × 2720).\n' "$GITHUB_SHA" > README.md
+          git add -- *.png README.md
+          git commit -m "Screenshots for $GITHUB_SHA"
+          git push --force origin screenshots
