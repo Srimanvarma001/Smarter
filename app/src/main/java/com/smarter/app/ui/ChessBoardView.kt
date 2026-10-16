@@ -4,15 +4,14 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color as AndroidColor
-import android.graphics.Outline
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.graphics.drawable.Drawable
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewOutlineProvider
 import android.view.animation.DecelerateInterpolator
 import com.smarter.app.R
 import com.smarter.core.chess.Color
@@ -23,8 +22,10 @@ import com.smarter.core.chess.Position
 import com.smarter.core.chess.Square
 
 /**
- * A chessboard you can play on by tapping or dragging. Monochrome squares with red
- * highlights, and the chessnut piece set as vector drawables so it is sharp at any size.
+ * A chessboard you can play on by tapping or dragging, styled like chess.com's default board:
+ * green and cream squares, yellow last-move highlights, soft move dots, coordinates inside the
+ * edge squares, and a tick or cross badge on the square of a right or wrong move. Pieces are the
+ * cburnett set as vector drawables, so they are sharp at any size.
  */
 class ChessBoardView(context: Context) : View(context) {
     /** Called with a legal move made by the user. */
@@ -53,6 +54,18 @@ class ChessBoardView(context: Context) : View(context) {
             invalidate()
         }
 
+    enum class Mark { CORRECT, WRONG }
+
+    /** Badge on the destination square of the last move: right or wrong. */
+    private var mark: Mark? = null
+    private var markSquare = -1
+
+    fun mark(square: Int, mark: Mark?) {
+        this.mark = mark
+        markSquare = square
+        invalidate()
+    }
+
     var position: Position = Position.initial()
         private set
     private var lastMove: Move? = null
@@ -64,6 +77,8 @@ class ChessBoardView(context: Context) : View(context) {
     private var deselectOnTap = false
     private var dragX = 0f
     private var dragY = 0f
+    /** Square under the finger while dragging, outlined like on chess.com. */
+    private var hoverSquare = -1
 
     private var animatedMove: Move? = null
     private var animationProgress = 1f
@@ -71,27 +86,21 @@ class ChessBoardView(context: Context) : View(context) {
 
     private val lightSquare = context.colorOf(R.color.square_light)
     private val darkSquare = context.colorOf(R.color.square_dark)
-    private val accent = context.colorOf(R.color.accent)
+    private val lightHighlight = context.colorOf(R.color.square_light_highlight)
+    private val darkHighlight = context.colorOf(R.color.square_dark_highlight)
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val coordinatePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.monoBold(context) }
+    private val coordinatePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = typeface(700) }
+    private val badgePath = Path()
     private val pieces = HashMap<Piece, Drawable>()
 
     private val squareSize get() = width / 8f
-
-    init {
-        // Rounded corners, clipped by the view outline.
-        outlineProvider = object : ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(0, 0, view.width, view.height, context.dpf(10f))
-            }
-        }
-        clipToOutline = true
-    }
 
     fun setPosition(position: Position, lastMove: Move?, animate: Boolean = false) {
         animator?.cancel()
         this.position = position
         this.lastMove = lastMove
+        mark = null
+        markSquare = -1
         clearSelection()
         if (animate && lastMove != null && isLaidOut) {
             animatedMove = lastMove
@@ -152,25 +161,21 @@ class ChessBoardView(context: Context) : View(context) {
         for (sq in 0 until 64) {
             val left = squareLeft(sq)
             val top = squareTop(sq)
-            val light = (Square.file(sq) + Square.rank(sq)) % 2 == 1
-            paint.color = if (light) lightSquare else darkSquare
+            val light = isLight(sq)
+            val highlighted = sq == selected || lastMove?.let { sq == it.from || sq == it.to } == true
+            paint.color = when {
+                highlighted && light -> lightHighlight
+                highlighted -> darkHighlight
+                light -> lightSquare
+                else -> darkSquare
+            }
             canvas.drawRect(left, top, left + size, top + size, paint)
-
-            val overlayAlpha = when {
-                sq == selected -> 0x80
-                lastMove?.let { sq == it.from || sq == it.to } == true -> 0x48
-                else -> 0
-            }
-            if (overlayAlpha > 0) {
-                paint.color = withAlpha(accent, overlayAlpha)
-                canvas.drawRect(left, top, left + size, top + size, paint)
-            }
         }
 
         drawCoordinates(canvas)
         drawCheck(canvas)
         drawHint(canvas)
-        drawTargets(canvas)
+        drawHover(canvas)
 
         for (sq in 0 until 64) {
             val piece = position[sq] ?: continue
@@ -179,6 +184,8 @@ class ChessBoardView(context: Context) : View(context) {
             if (move != null && sq == move.to && animationProgress < 1f) continue
             drawPiece(canvas, piece, squareLeft(sq), squareTop(sq), size)
         }
+        // Move dots go over the pieces so capture rings show around the piece to take.
+        drawTargets(canvas)
 
         val move = animatedMove
         if (move != null && animationProgress < 1f) {
@@ -193,22 +200,26 @@ class ChessBoardView(context: Context) : View(context) {
             val big = size * 1.25f
             position[selected]?.let { drawPiece(canvas, it, dragX - big / 2, dragY - big / 2 - size * 0.45f, big) }
         }
+        drawMark(canvas)
     }
+
+    private fun isLight(sq: Int) = (Square.file(sq) + Square.rank(sq)) % 2 == 1
 
     private fun drawCoordinates(canvas: Canvas) {
         val size = squareSize
-        coordinatePaint.textSize = size * 0.19f
+        coordinatePaint.textSize = size * 0.2f
         for (i in 0..7) {
-            // Rank numbers down the left edge, file letters along the bottom edge.
+            // Rank numbers in the top-left of the left column, file letters in the bottom-right
+            // of the bottom row, each in the other square colour.
             val rankSq = if (whiteAtBottom) Square.of(0, i) else Square.of(7, i)
-            coordinatePaint.color = if ((Square.file(rankSq) + i) % 2 == 1) darkSquare else lightSquare
+            coordinatePaint.color = if (isLight(rankSq)) darkSquare else lightSquare
             canvas.drawText("${i + 1}", squareLeft(rankSq) + size * 0.06f, squareTop(rankSq) + size * 0.22f, coordinatePaint)
 
             val fileSq = if (whiteAtBottom) Square.of(i, 0) else Square.of(i, 7)
-            coordinatePaint.color = if ((i + Square.rank(fileSq)) % 2 == 1) darkSquare else lightSquare
+            coordinatePaint.color = if (isLight(fileSq)) darkSquare else lightSquare
             val letter = "${'a' + i}"
             val textWidth = coordinatePaint.measureText(letter)
-            canvas.drawText(letter, squareLeft(fileSq) + size - textWidth - size * 0.06f, squareTop(fileSq) + size * 0.92f, coordinatePaint)
+            canvas.drawText(letter, squareLeft(fileSq) + size - textWidth - size * 0.06f, squareTop(fileSq) + size * 0.93f, coordinatePaint)
         }
     }
 
@@ -221,9 +232,9 @@ class ChessBoardView(context: Context) : View(context) {
         val cy = top + squareSize / 2
         paint.style = Paint.Style.FILL
         paint.shader = RadialGradient(
-            cx, cy, squareSize * 0.7f,
-            intArrayOf(withAlpha(accent, 0xFF), withAlpha(accent, 0xB0), withAlpha(accent, 0)),
-            floatArrayOf(0f, 0.3f, 1f),
+            cx, cy, squareSize * 0.72f,
+            intArrayOf(CHECK_RED, CHECK_RED, withAlpha(CHECK_RED, 0xA0), withAlpha(CHECK_RED, 0)),
+            floatArrayOf(0f, 0.25f, 0.55f, 1f),
             Shader.TileMode.CLAMP,
         )
         canvas.drawRect(left, top, left + squareSize, top + squareSize, paint)
@@ -233,8 +244,8 @@ class ChessBoardView(context: Context) : View(context) {
     private fun drawHint(canvas: Canvas) {
         if (hintSquare < 0) return
         paint.style = Paint.Style.STROKE
-        paint.strokeWidth = squareSize * 0.08f
-        paint.color = accent
+        paint.strokeWidth = squareSize * 0.07f
+        paint.color = AndroidColor.WHITE
         val inset = paint.strokeWidth / 2
         canvas.drawRect(
             squareLeft(hintSquare) + inset, squareTop(hintSquare) + inset,
@@ -243,20 +254,67 @@ class ChessBoardView(context: Context) : View(context) {
         )
     }
 
+    private fun drawHover(canvas: Canvas) {
+        if (!(dragging && dragMoved) || hoverSquare < 0) return
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = squareSize * 0.06f
+        paint.color = AndroidColor.argb(0xB0, 0xFF, 0xFF, 0xFF)
+        val inset = paint.strokeWidth / 2
+        canvas.drawRect(
+            squareLeft(hoverSquare) + inset, squareTop(hoverSquare) + inset,
+            squareLeft(hoverSquare) + squareSize - inset, squareTop(hoverSquare) + squareSize - inset,
+            paint,
+        )
+    }
+
     private fun drawTargets(canvas: Canvas) {
-        paint.color = AndroidColor.argb(0x48, 0, 0, 0)
+        paint.color = AndroidColor.argb(0x24, 0, 0, 0)
         for (to in targets.map { it.to }.distinct()) {
             val cx = squareLeft(to) + squareSize / 2
             val cy = squareTop(to) + squareSize / 2
             if (position[to] == null) {
                 paint.style = Paint.Style.FILL
-                canvas.drawCircle(cx, cy, squareSize * 0.15f, paint)
+                canvas.drawCircle(cx, cy, squareSize * 0.165f, paint)
             } else {
                 paint.style = Paint.Style.STROKE
-                paint.strokeWidth = squareSize * 0.08f
-                canvas.drawCircle(cx, cy, squareSize * 0.44f - paint.strokeWidth / 2, paint)
+                paint.strokeWidth = squareSize * 0.09f
+                canvas.drawCircle(cx, cy, squareSize * 0.5f - paint.strokeWidth / 2, paint)
             }
         }
+    }
+
+    /** A round tick or cross badge in the top-right corner of the marked square. */
+    private fun drawMark(canvas: Canvas) {
+        val mark = mark ?: return
+        if (markSquare < 0) return
+        val r = squareSize * 0.17f
+        val cx = squareLeft(markSquare) + squareSize - r * 1.05f
+        val cy = squareTop(markSquare) + r * 1.05f
+        paint.style = Paint.Style.FILL
+        paint.color = AndroidColor.argb(0x40, 0, 0, 0)
+        canvas.drawCircle(cx, cy + r * 0.08f, r * 1.04f, paint)
+        paint.color = if (mark == Mark.CORRECT) CORRECT_GREEN else WRONG_RED
+        canvas.drawCircle(cx, cy, r, paint)
+
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = r * 0.28f
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.strokeJoin = Paint.Join.ROUND
+        paint.color = AndroidColor.WHITE
+        badgePath.reset()
+        if (mark == Mark.CORRECT) {
+            badgePath.moveTo(cx - r * 0.45f, cy + r * 0.02f)
+            badgePath.lineTo(cx - r * 0.12f, cy + r * 0.35f)
+            badgePath.lineTo(cx + r * 0.48f, cy - r * 0.3f)
+        } else {
+            val d = r * 0.38f
+            badgePath.moveTo(cx - d, cy - d)
+            badgePath.lineTo(cx + d, cy + d)
+            badgePath.moveTo(cx + d, cy - d)
+            badgePath.lineTo(cx - d, cy + d)
+        }
+        canvas.drawPath(badgePath, paint)
+        paint.strokeCap = Paint.Cap.BUTT
     }
 
     private fun drawPiece(canvas: Canvas, piece: Piece, left: Float, top: Float, size: Float) {
@@ -285,8 +343,6 @@ class ChessBoardView(context: Context) : View(context) {
         }
     }
 
-    private fun withAlpha(color: Int, alpha: Int) = (color and 0x00FFFFFF) or (alpha shl 24)
-
     // --- Input ----------------------------------------------------------------------------
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -309,6 +365,7 @@ class ChessBoardView(context: Context) : View(context) {
                     dragMoved = false
                     dragX = event.x
                     dragY = event.y
+                    hoverSquare = sq
                     performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                 } else {
                     clearSelection()
@@ -321,6 +378,7 @@ class ChessBoardView(context: Context) : View(context) {
                 }
                 dragX = event.x
                 dragY = event.y
+                hoverSquare = squareAt(event.x, event.y)
                 invalidate()
             }
             MotionEvent.ACTION_UP -> if (dragging) {
@@ -360,5 +418,11 @@ class ChessBoardView(context: Context) : View(context) {
         targets = emptyList()
         dragging = false
         invalidate()
+    }
+
+    private companion object {
+        const val CHECK_RED = 0xFFFF0000.toInt()
+        const val CORRECT_GREEN = 0xFF81B64C.toInt()
+        const val WRONG_RED = 0xFFFA412D.toInt()
     }
 }

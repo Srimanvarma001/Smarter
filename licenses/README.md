@@ -2,8 +2,9 @@
 
 | Asset | Where | Author | License |
 | --- | --- | --- | --- |
-| Chessnut chess pieces | `app/src/main/res/drawable/piece_*.xml`, `web-preview/pieces/` (converted from SVG by `tools/svg_to_vector.py`) | [Alexis Luengas](https://github.com/LexLuengas/chessnut-pieces) | Apache 2.0 (`chessnut-LICENSE.txt`) |
-| Doto (dot-matrix display font) | `app/src/main/res/font/doto.ttf`, `web-preview/fonts/` | [Óliver Lalan](https://github.com/oliverlalan/Doto) | SIL Open Font License 1.1 (`Doto-OFL.txt`) |
-| Space Mono | `app/src/main/res/font/space_mono*.ttf`, `web-preview/fonts/` | [Colophon Foundry](https://github.com/googlefonts/spacemono) | SIL Open Font License 1.1 (`SpaceMono-OFL.txt`) |
+| cburnett chess pieces (Lichess's default set) | `app/src/main/res/drawable/piece_*.xml`, `web-preview/pieces/` (converted from SVG by `tools/svg_to_vector.py`; launcher icon pawn) | [Colin M.L. Burnett](https://en.wikipedia.org/wiki/User:Cburnett), via [lichess-org/lila](https://github.com/lichess-org/lila/tree/master/public/piece/cburnett) | GPLv2 or later (`cburnett-GPL-2.0.txt`) |
 | chess.js (browser preview only) | `web-preview/vendor/chess.js` | [Jeff Hlywa](https://github.com/jhlywa/chess.js) | BSD 2-Clause (`chess.js-LICENSE.txt`) |
-| Starter puzzles format, online puzzles | Lichess puzzle database / API | [lichess.org](https://database.lichess.org/#puzzles) | CC0 |
+| Offline puzzle pack, online puzzles | `app/src/main/assets/puzzles.csv` (sampled by `tools/make_puzzle_pack.py`), Lichess puzzle API | [lichess.org](https://database.lichess.org/#puzzles) | CC0 |
+
+The board colours follow chess.com's default green board; colours aren't copyrightable and no
+chess.com artwork is used.

@@ -22,27 +22,27 @@ import com.smarter.core.chess.Color
 import com.smarter.core.chess.Move
 import com.smarter.core.chess.PieceType
 import com.smarter.core.chess.San
-import com.smarter.core.puzzle.Difficulty
 import com.smarter.core.puzzle.Puzzle
 import com.smarter.core.puzzle.PuzzleSession
 
 /**
  * The lock screen: solve the required number of puzzles to unlock a blocked app for a while.
- * Started without a package name it is a practice mode that unlocks nothing.
+ * Every puzzle solved makes the next one harder. Started without a package name it is a
+ * practice mode that unlocks nothing.
  */
 class PuzzleActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
 
     private lateinit var backButton: View
     private lateinit var icon: ImageView
-    private lateinit var appName: TextView
-    private lateinit var lockedTag: TextView
-    private lateinit var title: TextView
+    private lateinit var heading: TextView
+    private lateinit var counter: TextView
     private lateinit var subtitle: TextView
-    private lateinit var progress: ProgressDots
+    private lateinit var progress: SegmentedProgress
+    private lateinit var sideSwatch: View
     private lateinit var status: TextView
-    private lateinit var metaLeft: TextView
-    private lateinit var metaRight: TextView
+    private lateinit var detail: TextView
+    private lateinit var rating: TextView
     private lateinit var board: ChessBoardView
     private lateinit var hintButton: TextView
     private lateinit var nextButton: TextView
@@ -53,11 +53,12 @@ class PuzzleActivity : Activity() {
     /** The app being unlocked, or null in practice mode. */
     private var targetApp: String? = null
     private var required = 0
-    private var difficulty = Difficulty.NORMAL
+    private var unlocksToday = 0
     private var solved = 0
     private var unlocked = false
     private var session: PuzzleSession? = null
     private var prefetched: Puzzle? = null
+    private var prefetchedFor = 0
 
     /** Bumped whenever a new unlock starts, so late puzzle deliveries for an old one are dropped. */
     private var generation = 0
@@ -113,34 +114,33 @@ class PuzzleActivity : Activity() {
         unlockedOverlay.visibility = View.GONE
 
         if (app != null) {
-            val unlocks = smarter.ledger.today(app, now).unlocks
-            required = settings.puzzlesRequired(unlocks)
-            difficulty = settings.difficultyFor(unlocks)
+            unlocksToday = smarter.ledger.today(app, now).unlocks
+            required = settings.puzzlesRequired(unlocksToday)
             backButton.visibility = View.GONE
             icon.setImageDrawable(appIcon(app))
             icon.visibility = View.VISIBLE
-            appName.text = appLabel(app).uppercase()
-            lockedTag.visibility = View.VISIBLE
-            title.text = "SOLVE $required TO UNLOCK"
+            heading.text = "${appLabel(app)} is locked"
             subtitle.text = buildString {
-                append("Time's up. Earn ${settings.unlockMinutes} more minutes.")
-                if (unlocks > 0) append(" Unlock #${unlocks + 1} today, so they get harder.")
+                append("Solve $required puzzles to get ${settings.unlockMinutes} more minutes.")
+                if (unlocksToday > 0) append(" Unlock ${unlocksToday + 1} today, so they start harder.")
             }
         } else {
+            unlocksToday = 0
             required = 0
-            difficulty = settings.difficulty
             backButton.visibility = View.VISIBLE
             icon.visibility = View.GONE
-            appName.text = "PRACTICE"
-            lockedTag.visibility = View.GONE
-            title.text = "WARM UP"
-            subtitle.text = "Practice puzzles don't unlock anything."
+            heading.text = "Practice"
+            subtitle.text = "Puzzles get harder as you solve them. Practice doesn't unlock anything."
         }
         renderProgress()
         loadNextPuzzle()
     }
 
     // --- Puzzle flow ----------------------------------------------------------------------
+
+    /** Rating for the next puzzle: higher after every solve, and after every unlock today. */
+    private fun targetRating(solvedSoFar: Int = solved): Int =
+        smarter.settings.blockerSettings.targetRating(unlocksToday, solvedSoFar)
 
     private fun loadNextPuzzle() {
         session = null
@@ -149,28 +149,34 @@ class PuzzleActivity : Activity() {
         nextButton.visibility = View.GONE
         hintButton.visibility = View.VISIBLE
 
+        val target = targetRating()
         val ready = prefetched
-        if (ready != null) {
-            prefetched = null
+        prefetched = null
+        if (ready != null && prefetchedFor == target) {
             show(ready)
             return
         }
-        setStatus("Loading puzzle…", R.color.text_secondary)
-        metaLeft.text = ""
-        metaRight.text = ""
+        setStatus("Loading puzzle…", "", R.color.text_secondary)
+        sideSwatch.visibility = View.INVISIBLE
+        rating.text = ""
         pendingLoad = true
         val requestedFor = generation
-        smarter.puzzles.next(difficulty) { puzzle ->
+        smarter.puzzles.next(target) { puzzle ->
             if (isDestroyed || requestedFor != generation || !pendingLoad) return@next
             pendingLoad = false
             show(puzzle)
         }
     }
 
+    /** Fetches the puzzle that follows a solve, so it is ready straight away. */
     private fun prefetchNextPuzzle() {
         val requestedFor = generation
-        smarter.puzzles.next(difficulty) { puzzle ->
-            if (!isDestroyed && requestedFor == generation && prefetched == null) prefetched = puzzle
+        val target = targetRating(solved + 1)
+        smarter.puzzles.next(target) { puzzle ->
+            if (!isDestroyed && requestedFor == generation && prefetched == null) {
+                prefetched = puzzle
+                prefetchedFor = target
+            }
         }
     }
 
@@ -180,25 +186,27 @@ class PuzzleActivity : Activity() {
         board.whiteAtBottom = session.solverColor == Color.WHITE
         board.setPosition(session.position, session.lastMove)
         board.interactive = true
-        setStatus(toMoveText(session), R.color.text_primary)
-        val mateIn = mateIn(puzzle)
-        metaLeft.text = "RATING ${puzzle.rating}" + if (mateIn != null) " · MATE IN $mateIn" else ""
-        metaRight.text = if (puzzle.id.startsWith("smr")) "BUILT-IN" else "LICHESS"
+        sideSwatch.background = roundedBackground(
+            if (session.solverColor == Color.WHITE) 0xFFFFFFFF.toInt() else 0xFF1A1917.toInt(), 4, colorOf(R.color.track),
+        )
+        sideSwatch.visibility = View.VISIBLE
+        showToMove(session)
+        rating.text = "Rating ${puzzle.rating}"
         if (targetApp == null || required - solved > 1) prefetchNextPuzzle()
     }
 
     private fun mateIn(puzzle: Puzzle): String? =
         puzzle.themes.firstNotNullOfOrNull { Regex("mateIn(\\d)").matchEntire(it)?.groupValues?.get(1) }
 
-    private fun toMoveText(session: PuzzleSession): String {
+    private fun showToMove(session: PuzzleSession) {
         val side = if (session.solverColor == Color.WHITE) "White" else "Black"
         val mateIn = mateIn(session.puzzle)
         val goal = when {
-            session.movesFound > 0 -> "keep going"
-            mateIn != null -> "find mate in $mateIn"
-            else -> "find the best move"
+            session.movesFound > 0 -> "Keep going."
+            mateIn != null -> "Find mate in $mateIn."
+            else -> "Find the best move."
         }
-        return "$side to move: $goal."
+        setStatus("$side to move", goal)
     }
 
     private fun onUserMove(move: Move) {
@@ -211,18 +219,20 @@ class PuzzleActivity : Activity() {
             is PuzzleSession.Result.Correct -> {
                 board.hapticConfirm()
                 board.setPosition(result.afterMove, result.move)
+                board.mark(result.move.to, ChessBoardView.Mark.CORRECT)
                 board.interactive = false
-                setStatus("✓ Good move!", R.color.text_primary)
+                setStatus("Best move!", "Keep going.", R.color.accent)
                 handler.postDelayed({
                     board.setPosition(result.afterReply, result.reply, animate = true)
                     board.interactive = true
-                    setStatus(toMoveText(session), R.color.text_primary)
+                    showToMove(session)
                 }, REPLY_DELAY_MS)
             }
 
             is PuzzleSession.Result.Solved -> {
                 board.hapticConfirm()
                 board.setPosition(result.afterMove, result.move)
+                board.mark(result.move.to, ChessBoardView.Mark.CORRECT)
                 board.interactive = false
                 onSolved()
             }
@@ -230,9 +240,10 @@ class PuzzleActivity : Activity() {
             is PuzzleSession.Result.Wrong -> {
                 board.hapticReject()
                 board.setPosition(before.play(result.move), result.move)
+                board.mark(result.move.to, ChessBoardView.Mark.WRONG)
                 board.interactive = false
                 hintButton.visibility = View.GONE
-                setStatus("✗ Not quite. The answer was ${San.of(before, result.expected)}.", R.color.accent)
+                setStatus("Incorrect", "The answer was ${San.of(before, result.expected)}.", R.color.danger)
                 handler.postDelayed({
                     board.setPosition(before.play(result.expected), result.expected, animate = true)
                     nextButton.visibility = View.VISIBLE
@@ -252,7 +263,11 @@ class PuzzleActivity : Activity() {
             return
         }
         val left = required - solved
-        setStatus(if (app != null) "✓ Solved! $left to go." else "✓ Solved! That's $solved this session.", R.color.text_primary)
+        setStatus(
+            "Solved!",
+            if (app != null) "$left to go. The next one is a little harder." else "That's $solved this session. Next one is harder.",
+            R.color.accent,
+        )
         handler.postDelayed({ loadNextPuzzle() }, NEXT_PUZZLE_DELAY_MS)
     }
 
@@ -260,8 +275,8 @@ class PuzzleActivity : Activity() {
         unlocked = true
         val settings = smarter.settings.blockerSettings
         smarter.ledger.grantUnlock(app, settings, System.currentTimeMillis())
-        unlockedAmount.text = "+${settings.unlockMinutes}"
-        unlockedText.text = "MIN UNLOCKED · ${appLabel(app).uppercase()}"
+        unlockedAmount.text = "+${settings.unlockMinutes} min"
+        unlockedText.text = "${appLabel(app)} unlocked"
         unlockedOverlay.alpha = 0f
         unlockedOverlay.visibility = View.VISIBLE
         unlockedOverlay.animate().alpha(1f).setDuration(220).start()
@@ -276,7 +291,7 @@ class PuzzleActivity : Activity() {
     private fun showHint() {
         val move = session?.hint() ?: return
         board.hintSquare = move.from
-        setStatus("Hint: move the highlighted piece.", R.color.text_primary)
+        detail.text = "Move the highlighted piece."
     }
 
     private fun leave() {
@@ -300,58 +315,66 @@ class PuzzleActivity : Activity() {
 
     // --- Layout ---------------------------------------------------------------------------
 
-    private fun setStatus(text: String, color: Int) {
-        status.text = text
+    private fun setStatus(title: String, detailText: String, color: Int = R.color.text_primary) {
+        status.text = title
         status.setTextColor(colorOf(color))
+        detail.text = detailText
     }
 
     private fun renderProgress() {
-        progress.visibility = if (required > 0) View.VISIBLE else View.GONE
+        val visibility = if (required > 0) View.VISIBLE else View.GONE
+        progress.visibility = visibility
+        counter.visibility = visibility
         progress.total = required
         progress.done = solved
+        counter.text = "$solved / $required"
     }
 
     private fun buildLayout(): View {
-        backButton = circleButton("←", 40, "Back", ::leave).apply {
-            (layoutParams as LinearLayout.LayoutParams).marginEnd = dp(12)
+        backButton = iconButton("←", 40, "Back", onClick = ::leave).apply {
+            (layoutParams as LinearLayout.LayoutParams).marginEnd = dp(4)
         }
         icon = ImageView(this)
-        appName = label(color = R.color.text_secondary)
-        lockedTag = redTag("Locked")
-        title = dotoText(sizeSp = 34f)
-        subtitle = body(sizeSp = 15f, color = R.color.text_secondary)
-        progress = ProgressDots(this)
-        status = body(sizeSp = 17f, bold = true).apply { minHeight = dp(24) }
-        metaLeft = label()
-        metaRight = label()
+        heading = textView(sizeSp = 18f, weight = 600)
+        counter = textView(sizeSp = 15f, color = R.color.text_secondary, weight = 600)
+        subtitle = textView(sizeSp = 14f, color = R.color.text_secondary)
+        progress = SegmentedProgress(this)
+        sideSwatch = View(this)
+        status = textView(sizeSp = 18f, weight = 700)
+        detail = textView(sizeSp = 14f, color = R.color.text_secondary).apply { minHeight = dp(20) }
+        rating = textView(sizeSp = 14f, color = R.color.text_secondary, weight = 500)
         board = ChessBoardView(this).apply {
             onMove = ::onUserMove
             choosePromotion = ::choosePromotion
             contentDescription = "Chessboard"
         }
-        hintButton = pillButton("Hint", ButtonStyle.OUTLINE, onClick = ::showHint)
-        nextButton = pillButton("Next puzzle", ButtonStyle.PRIMARY, onClick = ::loadNextPuzzle).apply { visibility = View.GONE }
-        val leaveButton = pillButton("Leave", ButtonStyle.OUTLINE, onClick = ::leave)
+        hintButton = button("Hint", ButtonStyle.SECONDARY, onClick = ::showHint)
+        nextButton = button("Next puzzle", ButtonStyle.PRIMARY, onClick = ::loadNextPuzzle).apply { visibility = View.GONE }
+        val leaveButton = button("Leave", ButtonStyle.SECONDARY, onClick = ::leave)
 
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(40)
+            minimumHeight = dp(44)
             addView(backButton)
-            addView(icon, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(12) })
-            addView(appName, wrap())
-            addView(lockedTag, wrap(dp(10)))
+            addView(icon, LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginEnd = dp(10) })
+            addView(heading, weighted())
+            addView(counter, wrap(dp(12)))
         }
-        val meta = LinearLayout(this).apply {
+        val top = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(8), dp(16), 0)
+            addView(header, matchWidth())
+            addView(subtitle, matchWidth(dp(4)))
+            addView(progress, matchWidth(dp(14)))
+        }
+
+        val statusRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(2), 0, dp(2), 0)
-            addView(metaLeft, weighted())
-            addView(metaRight, wrap())
-        }
-        // The board takes the remaining height; on tall 20:9 screens like the Nothing Phone
-        // it fills the width and the buttons sit at the bottom, within thumb reach.
-        val boardFrame = FrameLayout(this).apply {
-            addView(board, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+            gravity = Gravity.CENTER_VERTICAL
+            addView(sideSwatch, LinearLayout.LayoutParams(dp(18), dp(18)).apply { marginEnd = dp(10) })
+            addView(status, weighted())
+            addView(rating, wrap(dp(12)))
         }
         val buttons = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -359,23 +382,19 @@ class PuzzleActivity : Activity() {
             addView(nextButton, weighted().apply { marginEnd = dp(10) })
             addView(leaveButton, weighted())
         }
-
-        val column = LinearLayout(this).apply {
+        val statusPanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(16))
-            addView(header, matchWidth())
-            addView(title, matchWidth(dp(18)))
-            addView(subtitle, matchWidth(dp(8)))
-            addView(progress, wrap().apply { topMargin = dp(10); marginStart = -dp(5) })
-            addView(status, matchWidth(dp(12)))
-            addView(meta, matchWidth(dp(10)))
-            addView(boardFrame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { topMargin = dp(10) })
-            addView(buttons, matchWidth(dp(16)))
+            setPadding(dp(16), dp(16), dp(16), dp(8))
+            addView(statusRow, matchWidth())
+            addView(detail, matchWidth(dp(4)).apply { marginStart = dp(28) })
         }
+        buttons.setPadding(dp(16), dp(8), dp(16), dp(16))
+
+        val column = PuzzleLayout(this, top, board, statusPanel, buttons)
         fitSystemBars(column)
 
-        unlockedAmount = dotoText(sizeSp = 120f, color = R.color.accent)
-        unlockedText = label()
+        unlockedAmount = title(sizeSp = 56f).apply { setTextColor(colorOf(R.color.accent)) }
+        unlockedText = textView(sizeSp = 16f, color = R.color.text_secondary)
         unlockedOverlay = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -383,7 +402,7 @@ class PuzzleActivity : Activity() {
             visibility = View.GONE
             isClickable = true
             addView(unlockedAmount, wrap())
-            addView(unlockedText, wrap().apply { topMargin = dp(16) })
+            addView(unlockedText, wrap().apply { topMargin = dp(10) })
         }
 
         return FrameLayout(this).apply {
@@ -406,5 +425,51 @@ class PuzzleActivity : Activity() {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
         fun practiceIntent(context: Context): Intent = Intent(context, PuzzleActivity::class.java)
+    }
+}
+
+/**
+ * Lays out the lock screen like chess.com's puzzle view: the header, then the board spanning the
+ * full width (or as large as fits, staying square, on a short screen), the status right under
+ * it, and the buttons pinned to the bottom within thumb reach.
+ */
+private class PuzzleLayout(
+    context: Context,
+    private val header: View,
+    private val board: View,
+    private val status: View,
+    private val buttons: View,
+) : ViewGroup(context) {
+    private val gap = context.dp(16)
+
+    init {
+        for (child in listOf(header, board, status, buttons)) addView(child)
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val width = MeasureSpec.getSize(widthMeasureSpec)
+        val height = MeasureSpec.getSize(heightMeasureSpec)
+        val innerWidth = width - paddingLeft - paddingRight
+        val innerHeight = height - paddingTop - paddingBottom
+        val fullWidth = MeasureSpec.makeMeasureSpec(innerWidth, MeasureSpec.EXACTLY)
+        val anyHeight = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
+        for (child in listOf(header, status, buttons)) child.measure(fullWidth, anyHeight)
+        val rest = innerHeight - header.measuredHeight - gap - status.measuredHeight - buttons.measuredHeight
+        val boardSize = MeasureSpec.makeMeasureSpec(rest.coerceIn(0, innerWidth), MeasureSpec.EXACTLY)
+        board.measure(boardSize, boardSize)
+        setMeasuredDimension(width, height)
+    }
+
+    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+        val left = paddingLeft
+        var y = paddingTop
+        header.layout(left, y, left + header.measuredWidth, y + header.measuredHeight)
+        y += header.measuredHeight + gap
+        val boardLeft = left + (width - paddingLeft - paddingRight - board.measuredWidth) / 2
+        board.layout(boardLeft, y, boardLeft + board.measuredWidth, y + board.measuredHeight)
+        y += board.measuredHeight
+        status.layout(left, y, left + status.measuredWidth, y + status.measuredHeight)
+        val bottom = height - paddingBottom
+        buttons.layout(left, bottom - buttons.measuredHeight, left + buttons.measuredWidth, bottom)
     }
 }

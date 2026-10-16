@@ -1,8 +1,10 @@
 package com.smarter.core.puzzle
 
+import com.smarter.core.blocker.BlockerSettings
 import com.smarter.core.chess.Move
 import com.smarter.core.chess.Position
 import java.io.File
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -10,10 +12,11 @@ import kotlin.test.fail
 
 /**
  * Checks the offline puzzle pack bundled with the app. Every puzzle must parse and replay
- * legally. The hand-made puzzles (ids starting with "smr") are also proven sound: the line ends
- * in mate, and each solver move is the only one that forces mate in time (other moves would be
- * marked wrong, so a second solution would be unfair). Puzzles from the Lichess database are
- * already verified by Lichess with Stockfish.
+ * legally, and every rating the app can ask for must have plenty of puzzles. Hand-made puzzles
+ * (ids starting with "smr") are also proven sound: the line ends in mate, and each solver move
+ * is the only one that forces mate in time (other moves would be marked wrong, so a second
+ * solution would be unfair). Puzzles from the Lichess database are already verified by Lichess
+ * with Stockfish.
  */
 class PuzzlePackTest {
     private val packFile = File(System.getProperty("puzzlePack") ?: "../app/src/main/assets/puzzles.csv")
@@ -34,6 +37,17 @@ class PuzzlePackTest {
                 assertTrue(pos.isLegal(move), "${puzzle.id}: $move is illegal in ${pos.toFen()}")
                 pos = pos.play(move)
             }
+        }
+    }
+
+    @Test
+    fun everyTargetRatingHasPuzzles() {
+        val ratings = loadPack().map { it.rating }
+        val defaults = BlockerSettings()
+        // From the first puzzle of the day up to the hardest the ladder reaches.
+        for (target in defaults.startRating..BlockerSettings.MAX_RATING - PuzzlePicker.RATING_WINDOW step 50) {
+            val near = ratings.count { abs(it - target) <= PuzzlePicker.RATING_WINDOW }
+            assertTrue(near >= 100, "only $near puzzles near rating $target")
         }
     }
 

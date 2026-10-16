@@ -4,113 +4,70 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import com.smarter.app.R
 
-// Nothing-style custom widgets drawn with dots.
+// Small custom widgets drawn on a canvas.
 
-/** A row of dots filled left to right, like a Glyph progress bar. */
-class DotsBar(context: Context) : View(context) {
-    var dotCount = 16
-        set(value) { field = value; requestLayout() }
-    var filled = 0
-        set(value) { field = value; invalidate() }
+/** A thin rounded progress bar: how much of an app's time is used. Red once it's locked. */
+class UsageBar(context: Context) : View(context) {
+    var fraction = 0f
+        set(value) { field = value.coerceIn(0f, 1f); invalidate() }
     var alert = false
         set(value) { field = value; invalidate() }
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val dot = context.dpf(7f)
-    private val gap = context.dpf(4f)
+    private val rect = RectF()
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        setMeasuredDimension((dotCount * dot + (dotCount - 1) * gap).toInt() + 1, dot.toInt() + 1)
+        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), context.dp(4))
     }
 
     override fun onDraw(canvas: Canvas) {
-        for (i in 0 until dotCount) {
-            paint.color = when {
-                i >= filled -> context.colorOf(R.color.track)
-                alert -> context.colorOf(R.color.accent)
-                else -> context.colorOf(R.color.text_primary)
-            }
-            canvas.drawCircle(i * (dot + gap) + dot / 2, dot / 2, dot / 2, paint)
-        }
+        val h = height.toFloat()
+        rect.set(0f, 0f, width.toFloat(), h)
+        paint.color = context.colorOf(R.color.track)
+        canvas.drawRoundRect(rect, h / 2, h / 2, paint)
+        if (fraction <= 0f) return
+        rect.right = (width * fraction).coerceAtLeast(h)
+        paint.color = context.colorOf(if (alert) R.color.danger else R.color.accent)
+        canvas.drawRoundRect(rect, h / 2, h / 2, paint)
     }
 }
 
-/** Puzzle progress: solved dots are filled, the current one pulses red, the rest are rings. */
-class ProgressDots(context: Context) : View(context) {
+/** Puzzle progress: one segment per puzzle, filled green once solved. */
+class SegmentedProgress(context: Context) : View(context) {
     var total = 3
-        set(value) { field = value; requestLayout() }
+        set(value) { field = value; invalidate() }
     var done = 0
         set(value) { field = value; invalidate() }
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val size = context.dpf(16f)
-    private val gap = context.dpf(10f)
-    private val stroke = context.dpf(1.5f)
-    private var pulse = 0f
-    private val pulseAnimator = ValueAnimator.ofFloat(0f, 1f, 0f).apply {
-        duration = 1400
-        repeatCount = ValueAnimator.INFINITE
-        addUpdateListener {
-            pulse = it.animatedValue as Float
-            invalidate()
-        }
-    }
-
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        pulseAnimator.start()
-    }
-
-    override fun onDetachedFromWindow() {
-        pulseAnimator.cancel()
-        super.onDetachedFromWindow()
-    }
+    private val rect = RectF()
+    private val gap = context.dpf(4f)
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val halo = context.dpf(5f)
-        setMeasuredDimension((total * size + (total - 1).coerceAtLeast(0) * gap + 2 * halo).toInt(), (size + 2 * halo).toInt())
+        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), context.dp(4))
     }
 
     override fun onDraw(canvas: Canvas) {
-        val halo = context.dpf(5f)
-        val r = size / 2
+        if (total <= 0) return
+        val h = height.toFloat()
+        val segment = (width - gap * (total - 1)) / total
         for (i in 0 until total) {
-            val cx = halo + i * (size + gap) + r
-            val cy = halo + r
-            when {
-                i < done -> {
-                    paint.style = Paint.Style.FILL
-                    paint.color = context.colorOf(R.color.text_primary)
-                    canvas.drawCircle(cx, cy, r, paint)
-                }
-                i == done -> {
-                    paint.style = Paint.Style.FILL
-                    paint.color = context.colorOf(R.color.accent)
-                    paint.alpha = (64 * pulse).toInt()
-                    canvas.drawCircle(cx, cy, r + halo * pulse, paint)
-                    paint.alpha = 255
-                    paint.style = Paint.Style.STROKE
-                    paint.strokeWidth = stroke
-                    canvas.drawCircle(cx, cy, r - stroke / 2, paint)
-                }
-                else -> {
-                    paint.style = Paint.Style.STROKE
-                    paint.strokeWidth = stroke
-                    paint.color = context.colorOf(R.color.outline)
-                    canvas.drawCircle(cx, cy, r - stroke / 2, paint)
-                }
-            }
+            val left = i * (segment + gap)
+            rect.set(left, 0f, left + segment, h)
+            paint.color = context.colorOf(if (i < done) R.color.accent else R.color.track)
+            canvas.drawRoundRect(rect, h / 2, h / 2, paint)
         }
     }
 }
 
-/** An on/off switch: white track with a dark knob when on, grey when off. */
+/** An on/off switch: green track when on, grey when off, with a white knob. */
 class ToggleView(context: Context) : View(context) {
     var checked = false
         private set
@@ -142,7 +99,7 @@ class ToggleView(context: Context) : View(context) {
             return
         }
         animator = ValueAnimator.ofFloat(position, target).apply {
-            duration = 180
+            duration = 160
             interpolator = DecelerateInterpolator()
             addUpdateListener {
                 position = it.animatedValue as Float
@@ -153,18 +110,18 @@ class ToggleView(context: Context) : View(context) {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        setMeasuredDimension(context.dp(52), context.dp(30))
+        setMeasuredDimension(context.dp(48), context.dp(28))
     }
 
     override fun onDraw(canvas: Canvas) {
         val h = height.toFloat()
         rect.set(0f, 0f, width.toFloat(), h)
-        paint.color = blend(context.colorOf(R.color.track), context.colorOf(R.color.text_primary), position)
+        paint.color = blend(context.colorOf(R.color.track), context.colorOf(R.color.accent), position)
         canvas.drawRoundRect(rect, h / 2, h / 2, paint)
-        val inset = context.dpf(4f)
+        val inset = context.dpf(3f)
         val knob = h - 2 * inset
         val x = inset + (width - 2 * inset - knob) * position + knob / 2
-        paint.color = blend(context.colorOf(R.color.text_secondary), context.colorOf(R.color.background), position)
+        paint.color = 0xFFFFFFFF.toInt()
         canvas.drawCircle(x, h / 2, knob / 2, paint)
     }
 
@@ -174,30 +131,40 @@ class ToggleView(context: Context) : View(context) {
     }
 }
 
-/** Selection marker for the app picker: an empty ring, or a red dot when picked. */
-class CheckDot(context: Context) : View(context) {
+/** Selection marker for the app picker: an empty ring, or a green disc with a tick. */
+class CheckMark(context: Context) : View(context) {
     var checked = false
         set(value) { field = value; invalidate() }
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val tick = Path()
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         setMeasuredDimension(context.dp(24), context.dp(24))
     }
 
     override fun onDraw(canvas: Canvas) {
-        val c = width / 2f
-        val stroke = context.dpf(1.5f)
+        val size = width.toFloat()
+        val c = size / 2
+        val stroke = context.dpf(2f)
         if (checked) {
             paint.style = Paint.Style.FILL
             paint.color = context.colorOf(R.color.accent)
             canvas.drawCircle(c, c, c, paint)
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = stroke
+            paint.strokeCap = Paint.Cap.ROUND
+            paint.strokeJoin = Paint.Join.ROUND
             paint.color = context.colorOf(R.color.on_accent)
-            canvas.drawCircle(c, c, context.dpf(4f), paint)
+            tick.reset()
+            tick.moveTo(size * 0.29f, size * 0.52f)
+            tick.lineTo(size * 0.44f, size * 0.66f)
+            tick.lineTo(size * 0.72f, size * 0.37f)
+            canvas.drawPath(tick, paint)
         } else {
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = stroke
-            paint.color = context.colorOf(R.color.text_secondary)
+            paint.color = context.colorOf(R.color.track)
             canvas.drawCircle(c, c, c - stroke / 2, paint)
         }
     }

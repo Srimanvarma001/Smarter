@@ -7,14 +7,16 @@ allowance. When it runs out, the app is covered by a lock screen with a chess pu
 enough puzzles and you get a few more minutes. Every further unlock that day needs more,
 harder puzzles.
 
-## Designed for the Nothing Phone (4a)
+## Design
 
-The UI follows Nothing OS's look: true-black AMOLED dark theme (light theme too, following the
-system), dot-matrix display type ([Doto](https://github.com/oliverlalan/Doto), similar to
-Nothing's NDot), Space Mono labels, monochrome surfaces with a single red accent, dot-grid
-textures and Glyph-style dot progress bars. Layouts are sized for the 4a's 6.78″ 1224 × 2720
-(20:9) screen: the board spans the full width and the puzzle buttons sit at the bottom, in
-thumb reach. Moves, correct answers and mistakes each get their own haptic feedback.
+A minimal UI: the system font in sentence case, flat warm-grey surfaces (dark theme by default,
+light theme following the system) and one green accent that matches the board. The board looks
+like chess.com's: green and cream squares, yellow last-move highlights, soft move dots and
+capture rings, coordinates inside the edge squares, a red glow on a king in check and a green
+tick or red cross on the square of a right or wrong move. Pieces are the cburnett set
+(Lichess's default). Layouts are sized for the Nothing Phone (4a)'s 6.78″ 1224 × 2720 (20:9)
+screen: the board spans the full width and the puzzle buttons sit at the bottom, in thumb
+reach. Moves, correct answers and mistakes each get their own haptic feedback.
 
 ## Try it in your browser
 
@@ -45,14 +47,21 @@ It is a preview: the real blocking only happens in the Android app.
 ```
 
 * **Default rules** (all adjustable on the main screen): 30 free minutes per app per day,
-  3 puzzles per unlock, 10 minutes per unlock, Normal difficulty. With *Harder after each
-  unlock* on, each extra unlock of the same app adds a puzzle (up to +3) and steps the
-  difficulty up. Usage resets at local midnight.
+  3 puzzles per unlock, 10 minutes per unlock, starting rating 1400. Usage resets at local
+  midnight.
+* **Puzzles get harder as you go.** The first puzzle of the day is rated 1300–1500 (the
+  target ±100), and every puzzle you solve raises the target by 50: 1400, 1450, 1500, …
+  With *Harder after each unlock* on, each extra unlock of the same app also adds a puzzle
+  (up to +3) and starts 150 higher (1550, 1700, …, up to 2800). A failed puzzle doesn't
+  count, so the next one stays at the same level. Ratings are Lichess puzzle ratings, which
+  run on roughly the same scale as chess.com's puzzle ratings; there is no official
+  conversion, so lower or raise *Starting rating* if they feel off.
 * **Wrong move = failed puzzle.** The answer is shown and you get a new puzzle; only solved
   puzzles count. Like on Lichess, any move that gives checkmate is accepted.
-* **Puzzles** come from the [Lichess puzzle API](https://lichess.org/api#tag/Puzzles) when
-  online, matched to the difficulty. Offline, the app uses the bundled pack in
-  `app/src/main/assets/puzzles.csv`.
+* **Puzzles** are real Lichess puzzles. The bundled pack in `app/src/main/assets/puzzles.csv`
+  works offline. With *Fresh puzzles from Lichess* on, the app also asks the
+  [Lichess puzzle API](https://lichess.org/api#tag/Puzzles) and uses its puzzle if it is
+  within 150 of the target rating, falling back to the pack otherwise.
 * **Privacy:** the accessibility service only receives "window changed" events and the
   package name of the app in front. It cannot read screen content
   (`canRetrieveWindowContent="false"`). Everything is stored on the device.
@@ -92,11 +101,11 @@ the Nothing Phone (4a)'s resolution. Every CI build uploads them as the `screens
 artifact; the manual **Screenshots** workflow (Actions tab → Screenshots → Run workflow)
 also publishes them to the `screenshots` branch.
 
-## A bigger offline puzzle pack
+## Rebuilding the offline puzzle pack
 
-The bundled pack is a small hand-made set of mate-in-1 and mate-in-2 puzzles. The unit tests
-prove each one has a unique solution. For thousands of real puzzles, grab the free
-(CC0) Lichess puzzle database and sample it:
+The bundled pack is 4,000 puzzles sampled from the free (CC0) Lichess puzzle database: 250
+well-rated, often-played puzzles in every 100-point band from 1200 to 2800 (≈600 KB). To
+resample it (reading the `.zst` needs `pip install zstandard` or the `zstd` command):
 
 ```sh
 curl -O https://database.lichess.org/lichess_db_puzzle.csv.zst
@@ -104,17 +113,17 @@ python3 tools/make_puzzle_pack.py lichess_db_puzzle.csv.zst > app/src/main/asset
 ./gradlew :core:test   # checks every puzzle in the new pack parses and replays legally
 ```
 
-The default of 300 puzzles per 200-point rating band gives about 3,300 puzzles (≈450 KB).
+`--per-band`, `--band-size`, `--min-rating` and `--max-rating` change the sample.
 
 ## Project layout
 
 | Path | What's there |
 | --- | --- |
 | `core/` | Plain Kotlin, no Android: chess rules (`chess/`: legal moves, FEN, SAN), puzzles (`puzzle/`: Lichess formats, puzzle session, offline picker) and the time budget (`blocker/`: usage ledger, unlock rules, `BlockerEngine`). Unit-tested on the JVM; the move generator is checked against the standard perft counts. |
-| `app/` | The Android app, built with framework APIs only (no AndroidX): `BlockerService` (accessibility service), `PuzzleActivity` (lock screen), `ChessBoardView` (tap or drag to move), `MainActivity` (dashboard, stats and rules), `AppPickerActivity`, and the Nothing-style widgets in `ui/Ui.kt` and `ui/Widgets.kt`. |
+| `app/` | The Android app, built with framework APIs only (no AndroidX): `BlockerService` (accessibility service), `PuzzleActivity` (lock screen), `ChessBoardView` (tap or drag to move), `MainActivity` (dashboard, stats and rules), `AppPickerActivity`, and the shared widgets in `ui/Ui.kt` and `ui/Widgets.kt`. |
 | `web-preview/` | Browser preview of the app (same puzzles and rules, uses chess.js for move rules). |
 | `tools/make_puzzle_pack.py` | Builds `puzzles.csv` from the Lichess puzzle database. |
-| `tools/svg_to_vector.py` | Converts the chessnut piece SVGs into Android vector drawables. |
+| `tools/svg_to_vector.py` | Converts the cburnett piece SVGs into Android vector drawables. |
 | `licenses/` | Licenses for the bundled fonts, piece set and chess.js. |
 
 ## Limitations

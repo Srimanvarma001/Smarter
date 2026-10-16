@@ -1,15 +1,13 @@
 <resources>
-    <!-- Dark theme: true black for the Nothing Phone's AMOLED screen. -->
-    <color name="background">#000000</color>
-    <color name="surface">#111111</color>
-    <color name="surface_2">#1A1A1A</color>
-    <color name="outline">#262626</color>
-    <color name="text_primary">#FFFFFF</color>
-    <color name="text_secondary">#8C8C8C</color>
-    <color name="accent">#D71921</color>
-    <color name="on_accent">#FFFFFF</color>
-    <color name="primary_bg">#FFFFFF</color>
-    <color name="primary_fg">#000000</color>
-    <color name="track">#2A2A2A</color>
-    <color name="dot_grid">#12FFFFFF</color>
+    <!-- Dark theme. -->
+    <color name="background">#151412</color>
+    <color name="surface">#1F1E1B</color>
+    <color name="surface_2">#2A2926</color>
+    <color name="outline">#2E2C29</color>
+    <color name="text_primary">#F3F2EF</color>
+    <color name="text_secondary">#9E9B96</color>
+    <color name="accent">#81B64C</color>
+    <color name="on_accent">#10200A</color>
+    <color name="danger">#FF6B6B</color>
+    <color name="track">#34322E</color>
 </resources>

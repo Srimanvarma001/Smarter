@@ -82,10 +82,10 @@ class PuzzleTest {
         }
         val picker = PuzzlePicker(puzzles, kotlin.random.Random(1))
         repeat(20) {
-            assertTrue(picker.pick(Difficulty.NORMAL)!!.rating in 1400..1450)
+            assertTrue(picker.pick(1400)!!.rating in 1400..1450)
         }
-        assertEquals("p3", picker.pick(Difficulty.NORMAL, recentlySeen = setOf("p2"))!!.id)
-        assertEquals("p4", picker.pick(Difficulty.HARDEST)!!.id)
-        assertNull(PuzzlePicker(emptyList()).pick(Difficulty.NORMAL))
+        assertEquals("p3", picker.pick(1400, recentlySeen = setOf("p2"))!!.id)
+        assertEquals("p4", picker.pick(2000)!!.id)
+        assertNull(PuzzlePicker(emptyList()).pick(1400))
     }
 }

@@ -1,6 +1,5 @@
 package com.smarter.core.blocker
 
-import com.smarter.core.puzzle.Difficulty
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -48,10 +47,21 @@ class BlockerTest {
         val day = ledger.today("insta", at(9, 2))
         assertEquals(1, day.unlocks)
         assertEquals(3, settings.puzzlesRequired(day.unlocks))
-        assertEquals(Difficulty.HARDER, settings.difficultyFor(day.unlocks))
         assertEquals(2 + BlockerSettings.MAX_EXTRA_PUZZLES, settings.puzzlesRequired(10))
-        assertEquals(Difficulty.HARDEST, settings.difficultyFor(10))
         assertEquals(2, settings.copy(escalate = false).puzzlesRequired(4))
+    }
+
+    @Test
+    fun puzzlesGetHarderWithEachSolveAndUnlock() {
+        val s = BlockerSettings()
+        // The first unlock of the day starts at 1400 (puzzles rated 1300-1500) and climbs.
+        assertEquals(listOf(1400, 1450, 1500), (0..2).map { s.targetRating(unlocksToday = 0, solvedThisUnlock = it) })
+        // Each later unlock starts higher than the previous one ended.
+        assertEquals(1550, s.targetRating(unlocksToday = 1, solvedThisUnlock = 0))
+        assertEquals(1700, s.targetRating(unlocksToday = 2, solvedThisUnlock = 0))
+        assertEquals(BlockerSettings.MAX_RATING, s.targetRating(unlocksToday = 50, solvedThisUnlock = 5))
+        // Without escalation only the puzzles within one unlock get harder.
+        assertEquals(1450, s.copy(escalate = false).targetRating(unlocksToday = 3, solvedThisUnlock = 1))
     }
 
     @Test

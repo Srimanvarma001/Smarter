@@ -1,18 +1,19 @@
 <resources>
-    <!-- Light theme. Nothing-style monochrome with a red accent; see values-night for AMOLED dark. -->
-    <color name="background">#F2F2F2</color>
+    <!-- Light theme; see values-night for dark. Neutral warm greys with one green accent. -->
+    <color name="background">#F7F6F3</color>
     <color name="surface">#FFFFFF</color>
-    <color name="surface_2">#F7F7F7</color>
-    <color name="outline">#E0E0E0</color>
-    <color name="text_primary">#000000</color>
-    <color name="text_secondary">#6E6E6E</color>
-    <color name="accent">#D71921</color>
+    <color name="surface_2">#EFEEEA</color>
+    <color name="outline">#E6E4DF</color>
+    <color name="text_primary">#1A1917</color>
+    <color name="text_secondary">#6B6862</color>
+    <color name="accent">#3F7D24</color>
     <color name="on_accent">#FFFFFF</color>
-    <color name="primary_bg">#000000</color>
-    <color name="primary_fg">#FFFFFF</color>
-    <color name="track">#E2E2E2</color>
-    <color name="dot_grid">#0F000000</color>
-    <color name="square_light">#E3E3E3</color>
-    <color name="square_dark">#A3A3A3</color>
-    <color name="ic_launcher_background">#000000</color>
+    <color name="danger">#D9363E</color>
+    <color name="track">#E6E4DF</color>
+    <!-- The board looks the same in both themes: chess.com's green board. -->
+    <color name="square_light">#EBECD0</color>
+    <color name="square_dark">#739552</color>
+    <color name="square_light_highlight">#F5F682</color>
+    <color name="square_dark_highlight">#B9CA43</color>
+    <color name="ic_launcher_background">#739552</color>
 </resources>

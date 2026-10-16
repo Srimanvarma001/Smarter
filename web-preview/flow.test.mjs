@@ -20,23 +20,28 @@ await page.waitForSelector('body[data-ready="1"]');
 await page.tap('[data-open="com.instagram.android"]');
 check(await page.isVisible('#home'), 'stays home while blocker is off');
 await page.tap('#enable');
-check(await page.textContent('#status-text') === 'ON', 'blocker turns on');
+check(await page.textContent('#status-text') === 'On', 'blocker turns on');
+// Bundled puzzles only, so the rating checks below don't depend on the network.
+await page.tap('[data-t="online"]');
+check(await page.evaluate(() => window.smarter.state.settings.online === false), 'online puzzles off');
 
 // Shorten the allowance to 2 minutes with the stepper (30 -> 0 then +2 steps of 5? use -) .
 for (let i = 0; i < 6; i++) await page.tap('[data-k="allowance"][data-d="-1"]');
-check((await page.textContent('#rules')).includes('0 MIN'), 'allowance stepper goes down to 0');
+check((await page.textContent('#rules')).includes('0 min'), 'allowance stepper goes down to 0');
 await page.tap('[data-k="allowance"][data-d="1"]');
-check((await page.textContent('#rules')).includes('5 MIN'), 'allowance 5 min');
+check((await page.textContent('#rules')).includes('5 min'), 'allowance 5 min');
 await page.screenshot({ path: `${out}/1-home-${scheme}.png` });
 
 // Use Instagram until it locks (1 s = 1 min). The 1-minute toast should appear.
 await page.tap('[data-open="com.instagram.android"]');
 check(await page.isVisible('#appsim'), 'simulated app opens');
 await page.screenshot({ path: `${out}/2-app-${scheme}.png` });
-const warnedOk = await page.waitForFunction(() => document.querySelector('#toast.show')?.textContent.includes('1 MINUTE LEFT'), null, { timeout: 8000 }).then(() => true, () => false);
+const warnedOk = await page.waitForFunction(() => document.querySelector('#toast.show')?.textContent.includes('1 minute left'), null, { timeout: 8000 }).then(() => true, () => false);
 check(warnedOk, 'one-minute warning');
 await page.waitForSelector('#puzzle.active', { timeout: 8000 });
-check((await page.textContent('#lock-title')) === 'SOLVE 3 TO UNLOCK', 'lock screen asks for 3 puzzles');
+check((await page.textContent('#lock-sub')).startsWith('Solve 3 puzzles'), 'lock screen asks for 3 puzzles');
+const firstRating = await page.evaluate(() => window.smarter.lock.session.puzzle.rating);
+check(firstRating >= 1300 && firstRating <= 1500, `first puzzle is rated 1300-1500 (${firstRating})`);
 await page.waitForFunction(() => window.smarter.lock.session);
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${out}/3-lock-${scheme}.png` });
@@ -105,9 +110,12 @@ const wrong = await page.evaluate(() => {
   return c.lan;
 });
 await tapSquare(wrong.slice(0, 2)); await page.waitForTimeout(80); await tapSquare(wrong.slice(2, 4));
+check(await page.locator('#board .badge.bad').count() === 1, 'wrong move gets a red badge');
 await page.waitForSelector('#next-btn:visible', { timeout: 3000 });
-check((await page.textContent('#status')).startsWith('✗ Not quite'), 'wrong move is rejected and answer shown');
+check((await page.textContent('#status')) === 'Incorrect' && (await page.textContent('#detail')).startsWith('The answer was'), 'wrong move is rejected and answer shown');
 check(await page.evaluate(() => window.smarter.lock.solved) === 1, 'failed puzzle does not count');
+const secondRating = await page.evaluate(() => window.smarter.lock.session.puzzle.rating);
+check(secondRating >= 1350 && secondRating <= 1550, `after one solve the target climbs to 1450 (${secondRating})`);
 await page.screenshot({ path: `${out}/6-wrong-${scheme}.png` });
 await page.tap('#next-btn');
 
@@ -117,20 +125,23 @@ await solveCurrent();
 await page.waitForFunction(() => window.smarter.lock.session && window.smarter.board.interactive);
 await solveCurrent();
 await page.waitForSelector('#unlocked.show', { timeout: 3000 });
-check((await page.textContent('#unlocked-num')) === '+10', 'unlock overlay shows +10');
+check((await page.textContent('#unlocked-num')) === '+10 min', 'unlock overlay shows +10 min');
 await page.screenshot({ path: `${out}/7-unlocked-${scheme}.png` });
 await page.waitForSelector('#appsim.active', { timeout: 4000 });
 check(Number(await page.textContent('#sim-left')) >= 9, 'app reopens with ~10 minutes');
 await page.tap('#close-app');
 const info = await page.textContent('#apps');
-check(info.includes('1 UNLOCK'), 'home shows one unlock');
+check(info.includes('1 unlock'), 'home shows one unlock');
 check((await page.textContent('#solved-today')) === '3', 'stats count 3 solved today');
 await page.screenshot({ path: `${out}/8-home-after-${scheme}.png` });
 
 // Second unlock needs 4 puzzles (escalation).
 await page.tap('[data-open="com.instagram.android"]');
 await page.waitForSelector('#puzzle.active', { timeout: 15000 });
-check((await page.textContent('#lock-title')) === 'SOLVE 4 TO UNLOCK', 'second unlock needs 4 puzzles');
+check((await page.textContent('#lock-sub')).startsWith('Solve 4 puzzles'), 'second unlock needs 4 puzzles');
+await page.waitForFunction(() => window.smarter.lock.session);
+const escalated = await page.evaluate(() => window.smarter.lock.session.puzzle.rating);
+check(escalated >= 1450 && escalated <= 1650, `second unlock starts harder, around 1550 (${escalated})`);
 await page.tap('#leave-btn');
 check(await page.isVisible('#home'), 'leave goes home');
 
@@ -147,7 +158,7 @@ check((await page.textContent('#apps')).includes('TikTok'), 'picked app shows on
 // Practice mode.
 await page.tap('#practice');
 await page.waitForFunction(() => window.smarter.lock.session);
-check((await page.textContent('#lock-title')) === 'WARM UP', 'practice mode');
+check((await page.textContent('#lock-title')) === 'Practice', 'practice mode');
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${out}/10-practice-${scheme}.png` });
 

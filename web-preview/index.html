@@ -3,32 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#151412">
 <title>Smarter Preview</title>
 <style>
-  @font-face { font-family: "Doto"; src: url("fonts/doto.ttf") format("truetype"); font-weight: 100 900; }
-  @font-face { font-family: "Space Mono"; src: url("fonts/space_mono.ttf") format("truetype"); font-weight: 400; }
-  @font-face { font-family: "Space Mono"; src: url("fonts/space_mono_bold.ttf") format("truetype"); font-weight: 700; }
-
-  /* Same palette as app/src/main/res/values(-night)/colors.xml. Dark (AMOLED) is the default. */
+  /* Same palette as app/src/main/res/values(-night)/colors.xml. Dark is the default. */
   :root {
-    --bg: #000000; --surface: #111111; --surface-2: #1A1A1A; --outline: #262626;
-    --text: #FFFFFF; --text-2: #8C8C8C; --accent: #D71921; --on-accent: #FFFFFF;
-    --primary-bg: #FFFFFF; --primary-fg: #000000; --track: #2A2A2A; --dot: rgba(255,255,255,.07);
-    --sq-light: #E3E3E3; --sq-dark: #A3A3A3;
+    --bg: #151412; --surface: #1F1E1B; --surface-2: #2A2926; --outline: #2E2C29;
+    --text: #F3F2EF; --text-2: #9E9B96; --accent: #81B64C; --on-accent: #10200A;
+    --danger: #FF6B6B; --track: #34322E;
+    --sq-light: #EBECD0; --sq-dark: #739552; --hl-light: #F5F682; --hl-dark: #B9CA43;
     color-scheme: dark;
   }
   @media (prefers-color-scheme: light) {
     :root:not([data-theme="dark"]) {
-      --bg: #F2F2F2; --surface: #FFFFFF; --surface-2: #F7F7F7; --outline: #E0E0E0;
-      --text: #000000; --text-2: #6E6E6E; --primary-bg: #000000; --primary-fg: #FFFFFF;
-      --track: #E2E2E2; --dot: rgba(0,0,0,.06); color-scheme: light;
+      --bg: #F7F6F3; --surface: #FFFFFF; --surface-2: #EFEEEA; --outline: #E6E4DF;
+      --text: #1A1917; --text-2: #6B6862; --accent: #3F7D24; --on-accent: #FFFFFF;
+      --danger: #D9363E; --track: #E6E4DF; color-scheme: light;
     }
   }
   :root[data-theme="light"] {
-    --bg: #F2F2F2; --surface: #FFFFFF; --surface-2: #F7F7F7; --outline: #E0E0E0;
-    --text: #000000; --text-2: #6E6E6E; --primary-bg: #000000; --primary-fg: #FFFFFF;
-    --track: #E2E2E2; --dot: rgba(0,0,0,.06); color-scheme: light;
+    --bg: #F7F6F3; --surface: #FFFFFF; --surface-2: #EFEEEA; --outline: #E6E4DF;
+    --text: #1A1917; --text-2: #6B6862; --accent: #3F7D24; --on-accent: #FFFFFF;
+    --danger: #D9363E; --track: #E6E4DF; color-scheme: light;
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -39,147 +35,156 @@
   /* A phone-sized column; on a phone it simply fills the screen. */
   #phone { position: relative; max-width: 448px; min-height: 100dvh; margin: 0 auto; background: var(--bg); overflow: hidden; }
   @media (min-width: 600px) {
-    body { background: #0B0B0B; padding: 24px 0; }
-    #phone { min-height: 0; height: min(960px, calc(100dvh - 48px)); border-radius: 36px; outline: 1px solid #2A2A2A; }
+    body { background: #0C0B0A; padding: 24px 0; }
+    #phone { min-height: 0; height: min(960px, calc(100dvh - 48px)); border-radius: 32px; outline: 1px solid #2E2C29; }
   }
-  .screen { position: absolute; inset: 0; overflow-y: auto; padding: max(16px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom)); display: none; }
+  .screen { position: absolute; inset: 0; overflow-y: auto; padding: max(20px, env(safe-area-inset-top)) 20px max(32px, env(safe-area-inset-bottom)); display: none; }
   .screen.active { display: block; }
 
-  .doto { font-family: "Doto", monospace; font-variation-settings: "ROND" 100; font-weight: 800; letter-spacing: .02em; line-height: 1; }
-  .mono { font-family: "Space Mono", ui-monospace, monospace; }
-  .label { font: 700 11px/1.2 "Space Mono", monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--text-2); }
   .muted { color: var(--text-2); }
-  .red { color: var(--accent); }
+  h1 { font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -.01em; margin: 0; }
+  h2 { font-size: 24px; line-height: 1.1; font-weight: 700; margin: 0; }
+  .sub { margin: 6px 0 0; color: var(--text-2); }
 
-  .card { background: var(--surface); border: 1px solid var(--outline); border-radius: 24px; padding: 18px; }
-  .dotgrid { background-image: radial-gradient(var(--dot) 1.1px, transparent 1.4px); background-size: 9px 9px; }
-  .section { display: flex; justify-content: space-between; align-items: center; margin: 26px 4px 10px; }
-  .gap { height: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--outline); border-radius: 16px; padding: 4px 16px; }
+  .section { display: flex; justify-content: space-between; align-items: center; min-height: 36px; margin: 28px 4px 8px; }
+  .section span { font-size: 14px; font-weight: 600; color: var(--text-2); }
 
-  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; height: 52px; padding: 0 22px; border-radius: 26px;
-         font: 700 13px/1 "Space Mono", monospace; letter-spacing: .1em; text-transform: uppercase; width: 100%;
-         transition: transform .12s ease, opacity .12s; user-select: none; }
-  .btn:active { transform: scale(.97); }
-  .btn.primary { background: var(--primary-bg); color: var(--primary-fg); }
-  .btn.outline { border: 1px solid var(--outline); background: var(--surface); }
-  .btn.red { background: var(--accent); color: var(--on-accent); }
-  .btn.small { height: 36px; width: auto; padding: 0 16px; font-size: 11px; }
+  .btn { display: flex; align-items: center; justify-content: center; height: 52px; padding: 0 20px; border-radius: 12px;
+         font-size: 16px; font-weight: 600; width: 100%; transition: transform .12s ease, filter .12s; user-select: none; }
+  .btn:active { transform: scale(.98); filter: brightness(.95); }
+  .btn.primary { background: var(--accent); color: var(--on-accent); }
+  .btn.secondary { background: var(--surface-2); }
+  .btn.text { color: var(--accent); width: auto; height: 36px; padding: 0 12px; font-size: 14px; border-radius: 10px; }
+  .btn.text:active { background: var(--surface-2); }
   .row-btns { display: flex; gap: 10px; }
 
   /* Header */
-  .top { display: flex; align-items: center; justify-content: space-between; padding: 6px 4px 0; }
-  .brand { font-size: 44px; }
-  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 99px; border: 1px solid var(--outline); font: 700 11px "Space Mono", monospace; letter-spacing: .12em; }
-  .led { width: 8px; height: 8px; border-radius: 50%; background: var(--text); }
-  .led.red { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-  .tagline { margin: 6px 4px 0; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 99px;
+         color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+  .tag.on { --c: var(--accent); } .tag.off, .tag.locked { --c: var(--danger); }
+  .tag.dot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
-  /* Today card */
-  .hero { margin-top: 18px; padding: 20px; }
-  .hero-num { font-size: 76px; margin: 12px 0 0; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 18px; border-top: 1px solid var(--outline); padding-top: 14px; }
-  .stat b { display: block; font: 700 20px "Space Mono", monospace; }
-  .stat + .stat { padding-left: 12px; border-left: 1px solid var(--outline); }
+  /* Blocker off */
+  .warn { padding: 16px; margin-top: 24px; }
+  .warn h3 { margin: 0 0 6px; font-size: 17px; font-weight: 600; }
+  .warn p { margin: 0 0 16px; color: var(--text-2); font-size: 14px; }
+  .warn .small { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--text-2); }
+
+  /* Today */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); padding: 16px 18px; margin-top: 24px; }
+  .stat b { display: block; font-size: 26px; font-weight: 700; line-height: 1.2; }
+  .stat span { font-size: 13px; color: var(--text-2); }
 
   /* Apps */
-  .app-row { display: flex; align-items: center; gap: 14px; padding: 12px 0; }
+  .app-row { display: flex; align-items: center; gap: 14px; padding: 14px 0; }
   .app-row + .app-row { border-top: 1px solid var(--outline); }
-  .icon { width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; color: #fff; font: 700 18px "Space Mono", monospace; flex: none; }
+  .icon { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; color: #fff; font-size: 17px; font-weight: 700; flex: none; }
   .app-main { flex: 1; min-width: 0; }
-  .app-name { font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 8px; }
-  .tag { font: 700 10px "Space Mono", monospace; letter-spacing: .12em; padding: 3px 7px; border-radius: 99px; background: var(--accent); color: #fff; }
-  .dots { display: flex; gap: 4px; margin-top: 9px; }
-  .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--track); transition: background .3s; }
-  .dots i.on { background: var(--text); }
-  .dots.locked i.on { background: var(--accent); }
-  .open { font: 700 11px "Space Mono", monospace; letter-spacing: .1em; padding: 8px 12px; border-radius: 99px; border: 1px solid var(--outline); }
-  .empty { padding: 8px 0 4px; }
+  .app-name { font-weight: 500; font-size: 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .app-meta { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+  .bar { height: 4px; border-radius: 2px; background: var(--track); margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 2px; background: var(--accent); transition: width .3s; }
+  .bar.locked i { background: var(--danger); }
+  .open { font-size: 14px; font-weight: 600; color: var(--accent); padding: 8px 10px; border-radius: 10px; }
+  .open:active { background: var(--surface-2); }
+  .empty { padding: 16px 0; }
 
   /* Rules */
   .rule { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; }
   .rule + .rule { border-top: 1px solid var(--outline); }
-  .stepper { display: flex; align-items: center; gap: 4px; }
-  .stepper button { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--outline); font: 400 20px/1 "Space Mono", monospace; display: grid; place-items: center; }
-  .stepper button:active { background: var(--surface-2); }
-  .stepper span { min-width: 76px; text-align: center; font: 700 14px "Space Mono", monospace; }
   .rule small { display: block; color: var(--text-2); font-size: 13px; margin-top: 2px; }
-  .switch { width: 52px; height: 30px; border-radius: 99px; background: var(--track); position: relative; flex: none; transition: background .2s; }
-  .switch::after { content: ""; position: absolute; top: 4px; left: 4px; width: 22px; height: 22px; border-radius: 50%; background: var(--text-2); transition: transform .2s, background .2s; }
-  .switch.on { background: var(--text); }
-  .switch.on::after { transform: translateX(22px); background: var(--bg); }
-
-  .warn { border-color: color-mix(in srgb, var(--accent) 45%, var(--outline)); }
-  .warn h3 { margin: 0 0 6px; display: flex; align-items: center; gap: 10px; font: 700 13px "Space Mono", monospace; letter-spacing: .12em; }
-  .warn p { margin: 0 0 14px; color: var(--text-2); }
-  .hint { margin: 12px 0 0; font-size: 13px; color: var(--text-2); }
+  .stepper { display: flex; align-items: center; flex: none; }
+  .stepper button { width: 32px; height: 32px; border-radius: 50%; background: var(--surface-2); font-size: 18px; line-height: 1; display: grid; place-items: center; }
+  .stepper button:active { filter: brightness(1.2); }
+  .stepper span { min-width: 68px; text-align: center; font-weight: 600; }
+  .switch { width: 48px; height: 28px; border-radius: 99px; background: var(--track); position: relative; flex: none; transition: background .16s; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .16s; }
+  .switch.on { background: var(--accent); }
+  .switch.on::after { transform: translateX(20px); }
 
   /* Picker */
-  .bar { display: flex; align-items: center; gap: 12px; padding: 4px 0 0; }
-  .back { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--outline); display: grid; place-items: center; font-size: 18px; }
-  .title { font-size: 30px; }
-  .search { width: 100%; height: 48px; border-radius: 24px; border: 1px solid var(--outline); background: var(--surface); color: var(--text); padding: 0 18px; font: 15px system-ui, sans-serif; margin: 16px 0 6px; outline: none; }
-  .search:focus { border-color: var(--text-2); }
-  .check { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--text-2); display: grid; place-items: center; transition: all .15s; }
-  .check.on { background: var(--accent); border-color: var(--accent); }
-  .check.on::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+  .nav { display: flex; align-items: center; gap: 8px; margin: -4px 0 0 -8px; }
+  .back { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 22px; flex: none; }
+  .back:active { background: var(--surface-2); }
+  .search { width: 100%; height: 48px; border-radius: 12px; border: 0; background: var(--surface-2); color: var(--text); padding: 0 16px; font: 15px system-ui, sans-serif; margin: 16px 0 6px; outline: none; }
+  .search:focus { box-shadow: 0 0 0 2px var(--accent); }
+  .pick { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--track); display: grid; place-items: center; transition: all .15s; flex: none; }
+  .pick.on { background: var(--accent); border-color: var(--accent); }
+  .pick.on::after { content: ""; width: 9px; height: 5px; border: solid var(--on-accent); border-width: 0 0 2px 2px; transform: translateY(-1px) rotate(-45deg); }
 
   /* Simulated app */
-  .sim { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: calc(100% - 40px); gap: 18px; }
-  .sim .icon { width: 72px; height: 72px; border-radius: 22px; font-size: 22px; }
-  .countdown { font-size: 96px; }
+  .sim { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: calc(100% - 40px); gap: 12px; }
+  .sim .icon { width: 72px; height: 72px; border-radius: 20px; font-size: 26px; }
+  .countdown { font-size: 88px; font-weight: 700; line-height: 1; letter-spacing: -.02em; }
 
-  /* Puzzle screen */
-  .lock-head { display: flex; align-items: center; gap: 12px; }
-  .lock-head .icon { width: 36px; height: 36px; border-radius: 11px; font-size: 15px; }
+  /* Puzzle screen: header, full-width board, status under it, buttons pinned to the bottom. */
+  #puzzle { padding-left: 0; padding-right: 0; padding-bottom: max(16px, env(safe-area-inset-bottom)); }
   #puzzle.active { display: flex; flex-direction: column; }
-  /* The board fills the space left above the buttons and stays square: on a short screen it
-     gets smaller instead of squashed, and only scrolls once it would drop below 240px. */
   #puzzle > * { flex-shrink: 0; }
-  #puzzle .board-fit { flex: 1 1 0; min-height: 240px; container-type: size; }
-  .board-fit .board { width: min(100cqw, 100cqh); margin: 0 auto; }
-  #puzzle .row-btns { margin-top: auto; padding-top: 16px; }
-  .lock-title { font-size: 34px; margin: 18px 0 8px; }
-  .progress { display: flex; gap: 10px; margin: 16px 0 0; }
-  .progress i { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--outline); transition: all .3s; }
-  .progress i.done { background: var(--text); border-color: var(--text); }
-  .progress i.now { border-color: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
-  @keyframes pulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 25%, transparent); } }
-  .status { margin: 18px 0 12px; font-weight: 650; font-size: 17px; min-height: 24px; transition: color .2s; }
-  .status.good { color: var(--text); }
-  .status.bad { color: var(--accent); }
-  .meta { display: flex; justify-content: space-between; margin: 0 2px 10px; }
+  .pad { padding: 0 16px; }
+  .lock-head { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+  .lock-head .icon { width: 28px; height: 28px; border-radius: 8px; font-size: 13px; }
+  .lock-head .back { margin: 0 -6px 0 -8px; }
+  #lock-title { font-size: 18px; font-weight: 600; flex: 1; }
+  #counter { color: var(--text-2); font-weight: 600; }
+  #lock-sub { font-size: 14px; color: var(--text-2); margin-top: 4px; }
+  .progress { display: flex; gap: 4px; margin-top: 14px; }
+  .progress i { flex: 1; height: 4px; border-radius: 2px; background: var(--track); transition: background .3s; }
+  .progress i.done { background: var(--accent); }
+  /* The board gets the space left above the buttons and stays square: on a short screen it
+     shrinks instead of being squashed, keeping room for the status under it. */
+  #puzzle .board-fit { flex: 1 1 0; min-height: 320px; container-type: size; margin-top: 16px; }
+  .board-fit .board { width: min(100cqw, 100cqh - 84px); margin: 0 auto; }
+  .status-panel { height: 84px; padding: 16px 16px 0; width: min(100cqw, 100cqh - 84px); margin: 0 auto; }
+  .status-row { display: flex; align-items: center; gap: 10px; }
+  #side { width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--track); flex: none; }
+  #side.w { background: #fff; } #side.b { background: #1A1917; } #side.none { visibility: hidden; }
+  .status { font-size: 18px; font-weight: 700; flex: 1; transition: color .2s; }
+  .status.good { color: var(--accent); } .status.bad { color: var(--danger); } .status.wait { color: var(--text-2); }
+  #rating { font-size: 14px; color: var(--text-2); font-weight: 500; }
+  #detail { font-size: 14px; color: var(--text-2); margin: 4px 0 0 28px; min-height: 20px; }
+  #puzzle .row-btns { padding: 8px 16px 0; }
 
-  /* Board */
-  .board { position: relative; width: 100%; aspect-ratio: 1; border-radius: 10px; overflow: hidden; touch-action: none; user-select: none; }
-  .board .sq { position: absolute; width: 12.5%; height: 12.5%; }
+  /* Board, styled like chess.com's default green board. */
+  .board { position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; touch-action: none; user-select: none; container-type: inline-size; }
+  .board .sq, .board .hl, .board .pc { position: absolute; width: 12.5%; height: 12.5%; }
   .board .sq.l { background: var(--sq-light); }
   .board .sq.d { background: var(--sq-dark); }
-  .board .coord { position: absolute; font: 700 9px "Space Mono", monospace; pointer-events: none; }
-  .board .hl { position: absolute; width: 12.5%; height: 12.5%; pointer-events: none; }
-  .board .hl.last { background: rgba(215, 25, 33, .28); }
-  .board .hl.sel { background: rgba(215, 25, 33, .5); }
-  .board .hl.check { background: radial-gradient(circle, rgba(215,25,33,1) 0%, rgba(215,25,33,.7) 30%, rgba(215,25,33,0) 70%); }
-  .board .hl.hint { box-shadow: inset 0 0 0 4px var(--accent); }
-  .board .hl.target::after { content: ""; position: absolute; left: 50%; top: 50%; width: 30%; height: 30%; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(0,0,0,.28); }
-  .board .hl.target.cap::after { width: 88%; height: 88%; background: transparent; box-shadow: inset 0 0 0 5px rgba(0,0,0,.28); }
-  .board .pc { position: absolute; width: 12.5%; height: 12.5%; pointer-events: none; transition: transform .2s cubic-bezier(.2,.8,.2,1); will-change: transform; }
+  .board .coord { position: absolute; font-weight: 700; font-size: 2.5cqw; line-height: 1; pointer-events: none; }
+  .board .hl { pointer-events: none; }
+  .board .hl.last.l, .board .hl.sel.l { background: var(--hl-light); }
+  .board .hl.last.d, .board .hl.sel.d { background: var(--hl-dark); }
+  .board .hl.check { background: radial-gradient(ellipse at center, rgb(255,0,0) 0%, rgb(231,0,0) 25%, rgba(169,0,0,0) 89%, rgba(158,0,0,0) 100%); }
+  .board .hl.hint { box-shadow: inset 0 0 0 .875cqw #fff; }
+  .board .hl.hover { box-shadow: inset 0 0 0 .75cqw rgba(255,255,255,.7); }
+  .board .hl.target { z-index: 3; }
+  .board .hl.target::after { content: ""; position: absolute; left: 50%; top: 50%; width: 33%; height: 33%; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(0,0,0,.14); }
+  .board .hl.target.cap::after { width: 100%; height: 100%; background: transparent; box-shadow: inset 0 0 0 1.125cqw rgba(0,0,0,.14); }
+  .board .pc { pointer-events: none; z-index: 2; transition: transform .2s cubic-bezier(.2,.8,.2,1); will-change: transform; }
   .board .pc.drag { transition: none; z-index: 5; transform-origin: center; }
   .board .pc img { width: 100%; height: 100%; display: block; }
-  .promo { position: absolute; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; z-index: 10; }
-  .promo div { display: flex; gap: 8px; background: var(--surface); padding: 10px; border-radius: 18px; border: 1px solid var(--outline); }
-  .promo button { width: 64px; height: 64px; border-radius: 12px; background: var(--sq-light); }
+  .board .badge { position: absolute; width: 4.25cqw; height: 4.25cqw; border-radius: 50%; z-index: 6; pointer-events: none;
+                  transform: translate(-105%, 5%); box-shadow: 0 .2cqw .4cqw rgba(0,0,0,.3); display: grid; place-items: center; }
+  .board .badge.ok { background: #81B64C; } .board .badge.bad { background: #FA412D; }
+  .board .badge svg { width: 62%; height: 62%; }
+  .promo { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: grid; place-items: center; z-index: 10; }
+  .promo div { display: flex; gap: 8px; background: var(--surface); padding: 10px; border-radius: 16px; }
+  .promo button { width: 64px; height: 64px; border-radius: 10px; background: var(--sq-light); }
   .promo img { width: 100%; }
 
   /* Unlock overlay */
-  .overlay { position: absolute; inset: 0; background: var(--bg); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; z-index: 20; }
+  .overlay { position: absolute; inset: 0; background: var(--bg); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px; z-index: 20; }
   .overlay.show { display: flex; animation: fade .25s ease; }
-  .overlay .big { font-size: 120px; }
+  .overlay .big { font-size: 56px; font-weight: 700; color: var(--accent); letter-spacing: -.01em; }
+  .overlay .muted { font-size: 16px; }
   @keyframes fade { from { opacity: 0; transform: scale(.98); } }
 
-  .toast { position: absolute; left: 50%; bottom: 104px; transform: translate(-50%, 20px); opacity: 0; transition: all .25s; background: var(--primary-bg); color: var(--primary-fg);
-           padding: 12px 18px; border-radius: 99px; font: 700 12px "Space Mono", monospace; letter-spacing: .06em; z-index: 30; white-space: nowrap; pointer-events: none; }
+  .toast { position: absolute; left: 50%; bottom: 104px; transform: translate(-50%, 20px); opacity: 0; transition: all .25s; background: var(--text); color: var(--bg);
+           padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 500; z-index: 30; white-space: nowrap; pointer-events: none; }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
-  .note { margin: 22px 4px 0; font-size: 12px; color: var(--text-2); }
+  .note { margin: 20px 4px 0; font-size: 12px; color: var(--text-2); }
 </style>
 </head>
 <body>
@@ -188,83 +193,83 @@
   <!-- Home -->
   <section class="screen" id="home">
     <div class="top">
-      <div class="doto brand">SMARTER</div>
-      <button class="pill" id="status-pill"><span class="led" id="status-led"></span><span id="status-text">ON</span></button>
+      <h1>Smarter</h1>
+      <button class="tag dot" id="status-pill"><span id="status-text">On</span></button>
     </div>
-    <div class="tagline label">Earn your screen time</div>
+    <p class="sub">Earn your screen time with chess puzzles.</p>
 
-    <div class="card warn" id="blocker-off" style="margin-top:18px">
-      <h3><span class="led red"></span>BLOCKER IS OFF</h3>
-      <p>Turn on “Smarter app blocker” in Accessibility settings so Smarter can tell which app is open. It never reads your screen.</p>
-      <button class="btn primary" id="enable">Turn on blocker</button>
-      <p class="hint">Greyed out? In App info, open the three-dot menu and allow restricted settings first.</p>
-    </div>
-
-    <div class="card hero dotgrid">
-      <div class="label">Puzzles solved today</div>
-      <div class="doto hero-num" id="solved-today">0</div>
-      <div class="stats">
-        <div class="stat"><span class="label">Used</span><b id="used-today">0m</b></div>
-        <div class="stat"><span class="label">Unlocks</span><b id="unlocks-today">0</b></div>
-        <div class="stat"><span class="label">All-time</span><b id="solved-all">0</b></div>
-      </div>
+    <div class="card warn" id="blocker-off">
+      <h3>Turn on the blocker</h3>
+      <p>Enable “Smarter app blocker” in Accessibility settings so Smarter can tell which app is open. It never reads your screen.</p>
+      <button class="btn primary" id="enable">Open settings</button>
+      <div class="small"><span style="flex:1">Switch greyed out? Allow restricted settings in App info first.</span><button class="btn text">App info</button></div>
     </div>
 
-    <div class="section"><span class="label">Blocked apps</span><button class="btn outline small" id="edit-apps">Edit</button></div>
+    <div class="card stats">
+      <div class="stat"><b id="solved-today">0</b><span>Solved today</span></div>
+      <div class="stat"><b id="used-today">0m</b><span>Time used</span></div>
+      <div class="stat"><b id="unlocks-today">0</b><span>Unlocks</span></div>
+    </div>
+
+    <div class="section"><span>Blocked apps</span><button class="btn text" id="edit-apps">Edit</button></div>
     <div class="card" id="apps"></div>
 
-    <div class="section"><span class="label">Rules</span></div>
+    <div class="section"><span>Rules</span></div>
     <div class="card" id="rules"></div>
 
-    <div class="gap"></div><div class="gap"></div>
-    <button class="btn primary" id="practice">Practice a puzzle</button>
-    <p class="note">Browser preview of the Android app at Nothing Phone (4a) size. “Open” simulates using an app at 1 second = 1 minute, so you can watch it lock.</p>
+    <button class="btn primary" id="practice" style="margin-top:28px">Practice a puzzle</button>
+    <p class="note">Browser preview of the Android app. “Open” simulates using an app at 1 second = 1 minute, so you can watch it lock.</p>
   </section>
 
   <!-- App picker -->
   <section class="screen" id="picker">
-    <div class="bar"><button class="back" data-go="home" aria-label="Back">←</button><div class="doto title">CHOOSE APPS</div></div>
-    <p class="muted" style="margin:14px 4px 0">Each app you pick gets its own daily free time. After that, it takes chess puzzles to unlock.</p>
+    <div class="nav"><button class="back" data-go="home" aria-label="Back">←</button><h2>Choose apps</h2></div>
+    <p class="muted" style="margin:10px 4px 0">Each app you pick gets its own daily free time. After that, it takes chess puzzles to unlock.</p>
     <input class="search" id="search" placeholder="Search apps" autocomplete="off">
     <div id="app-list"></div>
   </section>
 
   <!-- Simulated foreground app -->
   <section class="screen" id="appsim">
-    <div class="bar"><button class="back" id="close-app" aria-label="Close app">←</button><span class="label">Simulated app</span></div>
+    <div class="nav"><button class="back" id="close-app" aria-label="Close app">←</button><span class="muted">Simulated app</span></div>
     <div class="sim">
       <div class="icon" id="sim-icon"></div>
-      <div class="label" id="sim-name"></div>
-      <div class="doto countdown" id="sim-left">0</div>
-      <div class="label">Minutes left today</div>
-      <p class="muted" style="max-width:280px">Pretend you're scrolling. 1 second here counts as 1 minute.</p>
+      <div style="font-weight:600;font-size:17px" id="sim-name"></div>
+      <div class="countdown" id="sim-left">0</div>
+      <div class="muted">minutes left today</div>
+      <p class="muted" style="max-width:280px;font-size:14px">Pretend you're scrolling. 1 second here counts as 1 minute.</p>
     </div>
   </section>
 
   <!-- Puzzle / lock screen -->
   <section class="screen" id="puzzle">
-    <div class="lock-head">
-      <button class="back" id="puzzle-back" aria-label="Back" style="display:none">←</button>
-      <div class="icon" id="lock-icon"></div>
-      <span class="label" id="lock-app"></span>
-      <span class="tag" id="lock-tag">LOCKED</span>
+    <div class="pad">
+      <div class="lock-head">
+        <button class="back" id="puzzle-back" aria-label="Back" style="display:none">←</button>
+        <div class="icon" id="lock-icon"></div>
+        <div id="lock-title"></div>
+        <div id="counter"></div>
+      </div>
+      <div id="lock-sub"></div>
+      <div class="progress" id="progress"></div>
     </div>
-    <div class="doto lock-title" id="lock-title"></div>
-    <div class="muted" id="lock-sub"></div>
-    <div class="progress" id="progress"></div>
-    <div class="status" id="status"></div>
-    <div class="meta"><span class="label" id="meta-left"></span><span class="label" id="meta-right"></span></div>
-    <div class="board-fit"><div class="board" id="board"></div></div>
+    <div class="board-fit">
+      <div class="board" id="board"></div>
+      <div class="status-panel">
+        <div class="status-row"><span id="side" class="none"></span><span class="status" id="status"></span><span id="rating"></span></div>
+        <div id="detail"></div>
+      </div>
+    </div>
     <div class="row-btns">
-      <button class="btn outline" id="hint-btn">Hint</button>
+      <button class="btn secondary" id="hint-btn">Hint</button>
       <button class="btn primary" id="next-btn" style="display:none">Next puzzle</button>
-      <button class="btn outline" id="leave-btn">Leave</button>
+      <button class="btn secondary" id="leave-btn">Leave</button>
     </div>
   </section>
 
   <div class="overlay" id="unlocked">
-    <div class="doto big red" id="unlocked-num">+10</div>
-    <div class="label" id="unlocked-text">MIN UNLOCKED</div>
+    <div class="big" id="unlocked-num">+10 min</div>
+    <div class="muted" id="unlocked-text">unlocked</div>
   </div>
   <div class="toast" id="toast"></div>
 </div>
@@ -275,12 +280,10 @@ import { Chess } from "./vendor/chess.js";
 // ---------------------------------------------------------------------------------------
 // Rules and puzzle logic, ported from core/ (BlockerSettings, UsageLedger, Puzzle, PuzzleSession).
 
-const DIFFICULTIES = [
-  { name: "Easiest", api: "easiest", rating: 800 }, { name: "Easier", api: "easier", rating: 1100 },
-  { name: "Normal", api: "normal", rating: 1400 }, { name: "Harder", api: "harder", rating: 1700 },
-  { name: "Hardest", api: "hardest", rating: 2000 },
-];
 const MAX_EXTRA_PUZZLES = 3;
+const PUZZLE_STEP = 50, UNLOCK_STEP = 150, MAX_RATING = 2800;
+const RATING_WINDOW = 100, ONLINE_WINDOW = 150;
+const LICHESS_DIFFICULTIES = [["easiest", 900], ["easier", 1200], ["normal", 1500], ["harder", 1800], ["hardest", 2100]];
 const MINUTE = 60_000;
 
 const APPS = [
@@ -298,14 +301,16 @@ const store = {
   set(key, value) { try { localStorage.setItem("smarter." + key, JSON.stringify(value)); } catch {} },
 };
 
+const DEFAULT_SETTINGS = { allowance: 30, puzzles: 3, unlockMinutes: 10, startRating: 1400, escalate: true, online: true };
 const state = {
-  settings: store.get("settings", { allowance: 30, puzzles: 3, unlockMinutes: 10, difficulty: 2, escalate: true, online: true }),
+  settings: { ...DEFAULT_SETTINGS, ...store.get("settings", {}) },
   blocked: store.get("blocked", ["com.instagram.android", "com.google.android.youtube"]),
   usage: store.get("usage", {}),
   stats: store.get("stats", { date: "", today: 0, all: 0 }),
   blockerOn: store.get("blockerOn", false),
   recent: store.get("recent", []),
 };
+delete state.settings.difficulty; // replaced by startRating
 const save = () => { for (const k of ["settings", "blocked", "usage", "stats", "blockerOn", "recent"]) store.set(k, state[k]); };
 
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
@@ -323,7 +328,9 @@ function grantUnlock(app) {
   save();
 }
 const puzzlesRequired = unlocks => state.settings.puzzles + (state.settings.escalate ? Math.min(unlocks, MAX_EXTRA_PUZZLES) : 0);
-const difficultyFor = unlocks => Math.min(DIFFICULTIES.length - 1, state.settings.difficulty + (state.settings.escalate ? unlocks : 0));
+// Every solved puzzle makes the next one harder; every unlock today starts the ladder higher.
+const targetRating = (unlocks, solved) =>
+  Math.min(MAX_RATING, state.settings.startRating + (state.settings.escalate ? unlocks * UNLOCK_STEP : 0) + solved * PUZZLE_STEP);
 function recordSolved() {
   if (state.stats.date !== today()) state.stats = { date: today(), today: 0, all: state.stats.all };
   state.stats.today++; state.stats.all++; save();
@@ -391,24 +398,26 @@ async function loadPack() {
     try { const r = await fetch(url); if (r.ok) { pack = (await r.text()).split("\n").map(puzzleFromCsv).filter(Boolean); if (pack.length) return; } } catch {}
   }
 }
-async function fetchOnline(level) {
+async function fetchOnline(target) {
+  // Without an account Lichess picks puzzles around 1500, shifted by the difficulty parameter.
+  const difficulty = LICHESS_DIFFICULTIES.reduce((a, b) => Math.abs(b[1] - target) < Math.abs(a[1] - target) ? b : a)[0];
   const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 4000);
   try {
-    const r = await fetch(`https://lichess.org/api/puzzle/next?difficulty=${DIFFICULTIES[level].api}`, { headers: { Accept: "application/json" }, signal: ctrl.signal });
-    return r.ok ? puzzleFromApi(await r.json()) : null;
+    const r = await fetch(`https://lichess.org/api/puzzle/next?difficulty=${difficulty}`, { headers: { Accept: "application/json" }, signal: ctrl.signal });
+    const p = r.ok ? puzzleFromApi(await r.json()) : null;
+    return p && Math.abs(p.rating - target) <= ONLINE_WINDOW ? p : null;
   } catch { return null; } finally { clearTimeout(t); }
 }
-function pickOffline(level) {
-  const target = DIFFICULTIES[level].rating;
+function pickOffline(target) {
   const fresh = pack.filter(p => !state.recent.includes(p.id));
   const pool0 = fresh.length ? fresh : pack;
-  const near = pool0.filter(p => Math.abs(p.rating - target) <= 250);
+  const near = pool0.filter(p => Math.abs(p.rating - target) <= RATING_WINDOW);
   const pool = near.length ? near : [...pool0].sort((a, b) => Math.abs(a.rating - target) - Math.abs(b.rating - target)).slice(0, 10);
   return pool[Math.floor(Math.random() * pool.length)];
 }
-async function nextPuzzle(level) {
-  let p = state.settings.online ? await fetchOnline(level) : null;
-  if (!p || state.recent.includes(p.id)) p = pickOffline(level);
+async function nextPuzzle(target) {
+  let p = state.settings.online ? await fetchOnline(target) : null;
+  if (!p || state.recent.includes(p.id)) p = pickOffline(target);
   state.recent = [...state.recent.filter(id => id !== p.id), p.id].slice(-200); save();
   return p;
 }
@@ -433,32 +442,29 @@ const fmtMin = ms => `${Math.floor(ms / MINUTE)}`;
 // Home
 
 function renderHome() {
-  $("status-led").className = "led" + (state.blockerOn ? "" : " red");
-  $("status-text").textContent = state.blockerOn ? "ON" : "OFF";
+  $("status-pill").className = "tag dot " + (state.blockerOn ? "on" : "off");
+  $("status-text").textContent = state.blockerOn ? "On" : "Off";
   $("blocker-off").style.display = state.blockerOn ? "none" : "block";
 
-  const statsToday = state.stats.date === today() ? state.stats.today : 0;
-  $("solved-today").textContent = statsToday;
-  $("solved-all").textContent = state.stats.all;
+  $("solved-today").textContent = state.stats.date === today() ? state.stats.today : 0;
   const days = state.blocked.map(day);
   $("used-today").textContent = fmtMin(days.reduce((s, d) => s + d.usedMs, 0)) + "m";
   $("unlocks-today").textContent = days.reduce((s, d) => s + d.unlocks, 0);
 
   const apps = $("apps");
   if (!state.blocked.length) {
-    apps.innerHTML = `<div class="empty muted">No apps blocked yet.</div><div class="gap"></div><button class="btn outline" id="choose">Choose apps</button>`;
+    apps.innerHTML = `<div class="empty muted">No apps blocked yet. Pick the ones that eat your time.</div><button class="btn secondary" id="choose" style="margin-bottom:16px">Choose apps</button>`;
     $("choose").onclick = () => show("picker");
   } else {
     apps.innerHTML = state.blocked.map(appById).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name)).map(app => {
       const d = day(app.id), limit = allowanceMs() + d.bonusMs, locked = remainingMs(app.id) === 0;
-      const filled = Math.round(Math.min(1, d.usedMs / Math.max(limit, 1)) * 16);
-      const dots = Array.from({ length: 16 }, (_, i) => `<i class="${i < filled ? "on" : ""}"></i>`).join("");
-      const unlocks = d.unlocks ? ` · ${d.unlocks} UNLOCK${d.unlocks > 1 ? "S" : ""}` : "";
+      const pct = Math.min(100, d.usedMs / Math.max(limit, 1) * 100);
+      const unlocks = d.unlocks ? ` · ${d.unlocks} unlock${d.unlocks > 1 ? "s" : ""}` : "";
       return `<div class="app-row">${iconHtml(app)}<div class="app-main">
-          <div class="app-name">${app.name}${locked ? '<span class="tag">LOCKED</span>' : ""}</div>
-          <div class="label" style="margin-top:3px">${fmtMin(Math.min(d.usedMs, limit))} / ${fmtMin(limit)} MIN${unlocks}</div>
-          <div class="dots ${locked ? "locked" : ""}">${dots}</div></div>
-        <button class="open" data-open="${app.id}">OPEN</button></div>`;
+          <div class="app-name"><span>${app.name}</span>${locked ? '<span class="tag locked">Locked</span>' : ""}</div>
+          <div class="app-meta">${fmtMin(Math.min(d.usedMs, limit))} of ${fmtMin(limit)} min${unlocks}</div>
+          <div class="bar ${locked ? "locked" : ""}"><i style="width:${pct}%"></i></div></div>
+        <button class="open" data-open="${app.id}">Open</button></div>`;
     }).join("");
     apps.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openApp(b.dataset.open));
   }
@@ -467,17 +473,17 @@ function renderHome() {
 
 function renderRules() {
   const s = state.settings;
-  const stepper = (key, label, value, minus, plus) => `<div class="rule"><span>${label}</span><div class="stepper">
+  const stepper = (key, label, value, desc = "") => `<div class="rule"><span>${label}${desc ? `<small>${desc}</small>` : ""}</span><div class="stepper">
       <button data-k="${key}" data-d="-1" aria-label="Decrease">−</button><span>${value}</span><button data-k="${key}" data-d="1" aria-label="Increase">+</button></div></div>`;
   const toggle = (key, label, desc, on) => `<div class="rule"><span>${label}<small>${desc}</small></span><button class="switch ${on ? "on" : ""}" data-t="${key}" role="switch" aria-checked="${on}"></button></div>`;
   $("rules").innerHTML =
-    stepper("allowance", "Free time per app daily", `${s.allowance} MIN`) +
+    stepper("allowance", "Free time per app", `${s.allowance} min`) +
     stepper("puzzles", "Puzzles per unlock", `${s.puzzles}`) +
-    stepper("unlockMinutes", "Time per unlock", `${s.unlockMinutes} MIN`) +
-    stepper("difficulty", "Difficulty", DIFFICULTIES[s.difficulty].name.toUpperCase()) +
-    toggle("escalate", "Harder after each unlock", `+1 puzzle (up to +${MAX_EXTRA_PUZZLES}) and harder each time.`, s.escalate) +
-    toggle("online", "Fresh puzzles from Lichess", "Online when possible, built-in set offline.", s.online);
-  const limits = { allowance: [0, 600, 5], puzzles: [1, 10, 1], unlockMinutes: [5, 120, 5], difficulty: [0, 4, 1] };
+    stepper("unlockMinutes", "Time per unlock", `${s.unlockMinutes} min`) +
+    stepper("startRating", "Starting rating", `${s.startRating}`, `+${PUZZLE_STEP} after every puzzle you solve`) +
+    toggle("escalate", "Harder after each unlock", `+1 puzzle (up to +${MAX_EXTRA_PUZZLES}) and +${UNLOCK_STEP} rating each time`, s.escalate) +
+    toggle("online", "Fresh puzzles from Lichess", "Online when possible, built-in set offline", s.online);
+  const limits = { allowance: [0, 600, 5], puzzles: [1, 10, 1], unlockMinutes: [5, 120, 5], startRating: [800, 2400, 100] };
   $("rules").querySelectorAll("[data-k]").forEach(b => b.onclick = () => {
     const [min, max, step] = limits[b.dataset.k];
     s[b.dataset.k] = Math.max(min, Math.min(max, s[b.dataset.k] + step * +b.dataset.d));
@@ -493,14 +499,14 @@ function renderPicker() {
   const q = $("search").value.trim().toLowerCase();
   const list = [...APPS].sort((a, b) => (state.blocked.includes(b.id) - state.blocked.includes(a.id)) || a.name.localeCompare(b.name))
     .filter(a => a.name.toLowerCase().includes(q));
-  $("app-list").innerHTML = list.length ? list.map(a => `<button class="app-row" style="width:100%;text-align:left" data-pick="${a.id}">${iconHtml(a)}
-      <div class="app-main"><div class="app-name">${a.name}</div></div><span class="check ${state.blocked.includes(a.id) ? "on" : ""}"></span></button>`).join("")
+  $("app-list").innerHTML = list.length ? list.map(a => `<button class="app-row" style="width:100%;text-align:left;padding:10px 4px" data-pick="${a.id}">${iconHtml(a)}
+      <div class="app-main"><div class="app-name">${a.name}</div></div><span class="pick ${state.blocked.includes(a.id) ? "on" : ""}"></span></button>`).join("")
     : `<p class="muted" style="text-align:center;margin-top:30px">No apps match.</p>`;
   $("app-list").querySelectorAll("[data-pick]").forEach(b => b.onclick = () => {
     const id = b.dataset.pick;
     state.blocked = state.blocked.includes(id) ? state.blocked.filter(x => x !== id) : [...state.blocked, id];
     haptic(8); save();
-    b.querySelector(".check").classList.toggle("on", state.blocked.includes(id));
+    b.querySelector(".pick").classList.toggle("on", state.blocked.includes(id));
   });
 }
 $("search").oninput = renderPicker;
@@ -510,7 +516,7 @@ $("search").oninput = renderPicker;
 
 let simApp = null, simTimer = null, warned = false;
 function openApp(id) {
-  if (!state.blockerOn) { toast("TURN ON THE BLOCKER FIRST"); return; }
+  if (!state.blockerOn) { toast("Turn on the blocker first"); return; }
   simApp = id; warned = false;
   const app = appById(id);
   $("sim-icon").outerHTML = iconHtml(app).replace('class="icon"', 'class="icon" id="sim-icon"');
@@ -524,7 +530,7 @@ function openApp(id) {
 function updateSim() {
   const left = remainingMs(simApp);
   $("sim-left").textContent = fmtMin(left);
-  if (left <= MINUTE && left > 0 && !warned) { warned = true; toast(`1 MINUTE LEFT ON ${appById(simApp).name.toUpperCase()}`); }
+  if (left <= MINUTE && left > 0 && !warned) { warned = true; toast(`1 minute left on ${appById(simApp).name}`); }
   if (left === 0) { clearInterval(simTimer); startLock(simApp); }
 }
 $("close-app").onclick = () => { clearInterval(simTimer); simApp = null; show("home"); };
@@ -533,16 +539,22 @@ $("close-app").onclick = () => { clearInterval(simTimer); simApp = null; show("h
 // Board
 
 const PIECE = { p: "P", n: "N", b: "B", r: "R", q: "Q", k: "K" };
+const BADGE = {
+  ok: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  bad: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>',
+};
+const isLight = sq => (sq.charCodeAt(0) - 97 + +sq[1] - 1) % 2 === 1;
 class Board {
   constructor(el, onMove) {
     this.el = el; this.onMove = onMove; this.white = true; this.interactive = false;
-    this.chess = new Chess(); this.lastMove = null; this.selected = null; this.hint = null; this.drag = null;
+    this.chess = new Chess(); this.lastMove = null; this.selected = null; this.hint = null; this.drag = null; this.mark = null; this.hover = null;
     el.addEventListener("pointerdown", e => this.down(e));
     el.addEventListener("pointermove", e => this.move(e));
     el.addEventListener("pointerup", e => this.up(e));
-    el.addEventListener("pointercancel", () => { this.drag = null; this.render(); });
+    el.addEventListener("pointercancel", () => { this.drag = null; this.hover = null; this.render(); });
   }
-  set(fen, lastMove, animate = false) { this.chess = new Chess(fen); this.lastMove = lastMove; this.selected = null; this.render(animate ? lastMove : null); }
+  set(fen, lastMove, animate = false) { this.chess = new Chess(fen); this.lastMove = lastMove; this.selected = null; this.mark = null; this.render(animate ? lastMove : null); }
+  setMark(sq, kind) { this.mark = { sq, kind }; this.render(); }
   pos(sq) { const f = sq.charCodeAt(0) - 97, r = +sq[1] - 1; return this.white ? [f, 7 - r] : [7 - f, r]; }
   sqAt(e) {
     const b = this.el.getBoundingClientRect();
@@ -555,27 +567,36 @@ class Board {
     const parts = [];
     for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
       const sq = this.white ? String.fromCharCode(97 + f) + (8 - r) : String.fromCharCode(104 - f) + (r + 1);
-      const light = (sq.charCodeAt(0) - 97 + +sq[1] - 1) % 2 === 1;
-      parts.push(`<div class="sq ${light ? "l" : "d"}" style="left:${f * 12.5}%;top:${r * 12.5}%"></div>`);
-      const color = light ? "var(--sq-dark)" : "var(--sq-light)";
-      if (f === 0) parts.push(`<span class="coord" style="left:calc(${f * 12.5}% + 3px);top:calc(${r * 12.5}% + 2px);color:${color}">${sq[1]}</span>`);
-      if (r === 7) parts.push(`<span class="coord" style="left:calc(${(f + 1) * 12.5}% - 10px);top:calc(${(r + 1) * 12.5}% - 14px);color:${color}">${sq[0]}</span>`);
+      parts.push(`<div class="sq ${isLight(sq) ? "l" : "d"}" style="left:${f * 12.5}%;top:${r * 12.5}%"></div>`);
     }
-    const hl = (sq, cls) => { const [x, y] = this.pos(sq); parts.push(`<div class="hl ${cls}" style="left:${x * 12.5}%;top:${y * 12.5}%"></div>`); };
+    const hl = (sq, cls) => { const [x, y] = this.pos(sq); parts.push(`<div class="hl ${cls} ${isLight(sq) ? "l" : "d"}" style="left:${x * 12.5}%;top:${y * 12.5}%"></div>`); };
     if (this.lastMove) { hl(this.lastMove.slice(0, 2), "last"); hl(this.lastMove.slice(2, 4), "last"); }
     if (this.selected) hl(this.selected, "sel");
+    // Coordinates inside the edge squares, each in the other square colour (drawn over highlights).
+    for (let i = 0; i < 8; i++) {
+      const rankSq = this.white ? "a" + (8 - i) : "h" + (i + 1);
+      parts.push(`<span class="coord" style="left:.75%;top:calc(${i * 12.5}% + .6%);color:var(${isLight(rankSq) ? "--sq-dark" : "--sq-light"})">${rankSq[1]}</span>`);
+      const fileSq = (this.white ? String.fromCharCode(97 + i) : String.fromCharCode(104 - i)) + (this.white ? 1 : 8);
+      parts.push(`<span class="coord" style="right:calc(${(7 - i) * 12.5}% + .75%);bottom:.7%;color:var(${isLight(fileSq) ? "--sq-dark" : "--sq-light"})">${fileSq[0]}</span>`);
+    }
     if (this.hint) hl(this.hint, "hint");
+    if (this.hover && this.drag?.moved) hl(this.hover, "hover");
     if (this.chess.inCheck()) {
       const king = this.chess.board().flat().find(p => p && p.type === "k" && p.color === this.chess.turn());
       hl(king.square, "check");
     }
-    for (const m of this.targets()) hl(m.to, "target" + (m.captured ? " cap" : ""));
     for (const row of this.chess.board()) for (const p of row) {
       if (!p) continue;
       const [x, y] = this.pos(p.square);
       parts.push(`<div class="pc" data-sq="${p.square}" style="left:${x * 12.5}%;top:${y * 12.5}%"><img src="pieces/${p.color}${PIECE[p.type]}.svg" alt="${p.color}${p.type}" draggable="false"></div>`);
     }
+    for (const m of this.targets()) hl(m.to, "target" + (m.captured ? " cap" : ""));
+    if (this.mark) {
+      const [x, y] = this.pos(this.mark.sq);
+      parts.push(`<div class="badge ${this.mark.kind}" style="left:${(x + 1) * 12.5}%;top:${y * 12.5}%">${BADGE[this.mark.kind]}</div>`);
+    }
     this.el.innerHTML = parts.join("");
+    if (this.drag) this.drag.el = this.el.querySelector(`.pc[data-sq="${this.drag.sq}"]`);
     if (animated) {
       const pc = this.el.querySelector(`.pc[data-sq="${animated.slice(2, 4)}"]`);
       if (pc) {
@@ -596,7 +617,7 @@ class Board {
     const p = this.chess.get(sq);
     if (p && p.color === this.chess.turn() && this.chess.moves({ square: sq }).length) {
       const again = this.selected === sq;
-      this.selected = sq; this.render(); haptic(4);
+      this.selected = sq; this.hover = sq; this.render(); haptic(4);
       this.drag = { sq, again, el: this.el.querySelector(`.pc[data-sq="${sq}"]`), moved: false };
       this.el.setPointerCapture(e.pointerId);
     } else { this.selected = null; this.render(); }
@@ -606,13 +627,15 @@ class Board {
     const b = this.el.getBoundingClientRect(), s = b.width / 8;
     const [x, y] = this.pos(this.drag.sq);
     const dx = e.clientX - b.left - (x + .5) * s, dy = e.clientY - b.top - (y + .5) * s - s * .35;
-    if (Math.hypot(dx, dy) > 6) this.drag.moved = true;
+    if (Math.hypot(dx, dy) > 6 && !this.drag.moved) { this.drag.moved = true; }
+    const hover = this.sqAt(e);
+    if (hover !== this.hover) { this.hover = hover; this.render(); }
     this.drag.el.classList.add("drag");
     this.drag.el.style.transform = `translate(${dx}px, ${dy}px) scale(1.2)`;
   }
   up(e) {
     if (!this.drag) return;
-    const sq = this.sqAt(e), drag = this.drag; this.drag = null;
+    const sq = this.sqAt(e), drag = this.drag; this.drag = null; this.hover = null;
     const t = this.targets().filter(m => m.to === sq);
     if (sq !== drag.sq && t.length) this.commit(t);
     else { if (sq === drag.sq && drag.again && !drag.moved) this.selected = null; this.render(); }
@@ -634,7 +657,7 @@ class Board {
 // Puzzle / lock screen (PuzzleActivity)
 
 const board = new Board($("board"), uci => onUserMove(uci));
-const lock = { app: null, required: 0, level: 2, solved: 0, session: null, gen: 0, unlocked: false };
+const lock = { app: null, required: 0, unlocks: 0, solved: 0, session: null, gen: 0, unlocked: false };
 
 function startLock(app) { openPuzzleScreen(app); }
 function openPuzzleScreen(app) {
@@ -642,19 +665,19 @@ function openPuzzleScreen(app) {
   const s = state.settings;
   $("puzzle-back").style.display = app ? "none" : "grid";
   if (app) {
-    const a = appById(app), unlocks = day(app).unlocks;
-    lock.required = puzzlesRequired(unlocks); lock.level = difficultyFor(unlocks);
+    const a = appById(app);
+    lock.unlocks = day(app).unlocks;
+    lock.required = puzzlesRequired(lock.unlocks);
     $("lock-icon").outerHTML = iconHtml(a).replace('class="icon"', 'class="icon" id="lock-icon"');
     $("lock-icon").style.display = "";
-    $("lock-app").textContent = a.name; $("lock-tag").style.display = "";
-    $("lock-title").textContent = `SOLVE ${lock.required} TO UNLOCK`;
-    $("lock-sub").textContent = `Time's up. Earn ${s.unlockMinutes} more minutes.` + (unlocks ? ` Unlock #${unlocks + 1} today, so they get harder.` : "");
+    $("lock-title").textContent = `${a.name} is locked`;
+    $("lock-sub").textContent = `Solve ${lock.required} puzzles to get ${s.unlockMinutes} more minutes.` +
+      (lock.unlocks ? ` Unlock ${lock.unlocks + 1} today, so they start harder.` : "");
   } else {
-    lock.required = 0; lock.level = s.difficulty;
-    $("lock-icon").style.display = "none"; $("lock-tag").style.display = "none";
-    $("lock-app").textContent = "Practice";
-    $("lock-title").textContent = "WARM UP";
-    $("lock-sub").textContent = "Practice puzzles don't unlock anything.";
+    lock.unlocks = 0; lock.required = 0;
+    $("lock-icon").style.display = "none";
+    $("lock-title").textContent = "Practice";
+    $("lock-sub").textContent = "Puzzles get harder as you solve them. Practice doesn't unlock anything.";
   }
   renderProgress();
   show("puzzle");
@@ -662,31 +685,32 @@ function openPuzzleScreen(app) {
 }
 function renderProgress() {
   $("progress").style.display = lock.required ? "flex" : "none";
-  $("progress").innerHTML = Array.from({ length: lock.required }, (_, i) => `<i class="${i < lock.solved ? "done" : i === lock.solved ? "now" : ""}"></i>`).join("");
+  $("counter").textContent = lock.required ? `${lock.solved} / ${lock.required}` : "";
+  $("progress").innerHTML = Array.from({ length: lock.required }, (_, i) => `<i class="${i < lock.solved ? "done" : ""}"></i>`).join("");
 }
-function setStatus(text, cls = "") { const s = $("status"); s.textContent = text; s.className = "status " + cls; }
-function toMoveText(sess) {
+function setStatus(text, detail = "", cls = "") { const s = $("status"); s.textContent = text; s.className = "status " + cls; $("detail").textContent = detail; }
+function showToMove(sess) {
   const side = sess.solverColor === "w" ? "White" : "Black";
   const mate = sess.puzzle.themes.map(t => /^mateIn(\d)$/.exec(t)).find(Boolean);
-  const goal = sess.movesFound > 0 ? "keep going" : mate ? `find mate in ${mate[1]}` : "find the best move";
-  return `${side} to move: ${goal}.`;
+  const goal = sess.movesFound > 0 ? "Keep going." : mate ? `Find mate in ${mate[1]}.` : "Find the best move.";
+  setStatus(`${side} to move`, goal);
 }
 async function loadNext() {
   lock.session = null; board.interactive = false; board.hint = null;
   $("next-btn").style.display = "none"; $("hint-btn").style.display = "";
-  setStatus("Loading puzzle…");
+  setStatus("Loading puzzle…", "", "wait");
+  $("side").className = "none"; $("rating").textContent = "";
   const gen = lock.gen;
-  const p = await nextPuzzle(lock.level);
+  const p = await nextPuzzle(targetRating(lock.unlocks, lock.solved));
   if (gen !== lock.gen) return;
   const sess = new Session(p);
   lock.session = sess;
   board.white = sess.solverColor === "w";
   board.set(p.fen, p.lastMove);
   board.interactive = true;
-  setStatus(toMoveText(sess));
-  const mate = p.themes.map(t => /^mateIn(\d)$/.exec(t)).find(Boolean);
-  $("meta-left").textContent = `RATING ${p.rating}` + (mate ? ` · MATE IN ${mate[1]}` : "");
-  $("meta-right").textContent = p.id.startsWith("smr") ? "BUILT-IN" : "LICHESS";
+  $("side").className = sess.solverColor;
+  $("rating").textContent = `Rating ${p.rating}`;
+  showToMove(sess);
 }
 function onUserMove(uci) {
   const sess = lock.session; if (!sess) return;
@@ -696,20 +720,20 @@ function onUserMove(uci) {
   if (r.kind === "illegal") { board.set(before, sess.lastMove); return; }
   if (r.kind === "correct") {
     haptic(12);
-    board.set(r.afterMoveFen, uci); board.interactive = false;
-    setStatus("✓ Good move!", "good");
-    setTimeout(() => { if (lock.session !== sess) return; board.set(sess.chess.fen(), r.reply, true); board.interactive = true; setStatus(toMoveText(sess)); }, 450);
+    board.set(r.afterMoveFen, uci); board.setMark(uci.slice(2, 4), "ok"); board.interactive = false;
+    setStatus("Best move!", "Keep going.", "good");
+    setTimeout(() => { if (lock.session !== sess) return; board.set(sess.chess.fen(), r.reply, true); board.interactive = true; showToMove(sess); }, 450);
   } else if (r.kind === "solved") {
     haptic([12, 60, 12]);
-    board.set(sess.chess.fen(), uci); board.interactive = false;
+    board.set(sess.chess.fen(), uci); board.setMark(uci.slice(2, 4), "ok"); board.interactive = false;
     onSolved();
   } else if (r.kind === "wrong") {
     haptic([30, 40, 30]);
     const wrong = new Chess(before); tryMove(wrong, uci);
-    board.set(wrong.fen(), uci); board.interactive = false;
+    board.set(wrong.fen(), uci); board.setMark(uci.slice(2, 4), "bad"); board.interactive = false;
     $("hint-btn").style.display = "none";
     const ans = new Chess(before), m = tryMove(ans, r.expected);
-    setStatus(`✗ Not quite. The answer was ${m.san}.`, "bad");
+    setStatus("Incorrect", `The answer was ${m.san}.`, "bad");
     setTimeout(() => { if (lock.session !== sess) return; board.set(ans.fen(), r.expected, true); $("next-btn").style.display = ""; }, 700);
   }
 }
@@ -717,28 +741,28 @@ function onSolved() {
   lock.solved++; recordSolved(); renderProgress();
   $("hint-btn").style.display = "none";
   if (lock.app && lock.solved >= lock.required) { unlock(); return; }
-  setStatus(lock.app ? `✓ Solved! ${lock.required - lock.solved} to go.` : `✓ Solved! That's ${lock.solved} this session.`, "good");
+  setStatus("Solved!", lock.app ? `${lock.required - lock.solved} to go. The next one is a little harder.` : `That's ${lock.solved} this session. Next one is harder.`, "good");
   const gen = lock.gen;
   setTimeout(() => { if (gen === lock.gen) loadNext(); }, 900);
 }
 function unlock() {
   lock.unlocked = true; grantUnlock(lock.app);
-  $("unlocked-num").textContent = `+${state.settings.unlockMinutes}`;
-  $("unlocked-text").textContent = `MIN UNLOCKED · ${appById(lock.app).name.toUpperCase()}`;
+  $("unlocked-num").textContent = `+${state.settings.unlockMinutes} min`;
+  $("unlocked-text").textContent = `${appById(lock.app).name} unlocked`;
   $("unlocked").classList.add("show");
   const app = lock.app, gen = lock.gen;
   setTimeout(() => { $("unlocked").classList.remove("show"); if (gen === lock.gen) openApp(app); }, 1400);
 }
 function leave() { lock.gen++; lock.session = null; simApp = null; show("home"); }
 
-$("hint-btn").onclick = () => { const m = lock.session?.hint(); if (!m) return; board.hint = m.slice(0, 2); board.render(); setStatus("Hint: move the highlighted piece."); };
+$("hint-btn").onclick = () => { const m = lock.session?.hint(); if (!m) return; board.hint = m.slice(0, 2); board.render(); $("detail").textContent = "Move the highlighted piece."; };
 $("next-btn").onclick = () => loadNext();
 $("leave-btn").onclick = leave;
 $("puzzle-back").onclick = leave;
 $("practice").onclick = () => openPuzzleScreen(null);
 $("edit-apps").onclick = () => show("picker");
 document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => show(b.dataset.go));
-$("enable").onclick = () => { state.blockerOn = true; save(); haptic(10); toast("BLOCKER ON (SIMULATED)"); renderHome(); };
+$("enable").onclick = () => { state.blockerOn = true; save(); haptic(10); toast("Blocker on (simulated)"); renderHome(); };
 $("status-pill").onclick = () => { state.blockerOn = !state.blockerOn; save(); renderHome(); };
 
 // Test hook: lets automated browser tests drive the preview.

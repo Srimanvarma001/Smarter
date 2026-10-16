@@ -4,17 +4,18 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import com.smarter.core.puzzle.Difficulty
 import com.smarter.core.puzzle.Puzzle
 import com.smarter.core.puzzle.PuzzlePicker
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URI
 import java.util.concurrent.Executors
+import kotlin.math.abs
 
 /**
- * Serves puzzles from the Lichess API when online, falling back to the bundled pack
- * (assets/puzzles.csv, in Lichess puzzle-database format).
+ * Serves puzzles near a target rating: from the Lichess API when online and the puzzle it sends
+ * is close enough to the target, otherwise from the bundled pack (assets/puzzles.csv, in Lichess
+ * puzzle-database format).
  */
 class PuzzleRepository(context: Context, private val settings: SettingsRepository) {
     private val appContext = context.applicationContext
@@ -23,27 +24,30 @@ class PuzzleRepository(context: Context, private val settings: SettingsRepositor
     private val offline: PuzzlePicker by lazy { loadBundledPack() }
 
     /** Loads a puzzle off the main thread and delivers it on the main thread. */
-    fun next(difficulty: Difficulty, callback: (Puzzle) -> Unit) {
+    fun next(targetRating: Int, callback: (Puzzle) -> Unit) {
         executor.execute {
             val recent = settings.recentPuzzleIds
-            val puzzle = (if (settings.onlinePuzzles) fetchOnline(difficulty, recent) else null)
-                ?: offline.pick(difficulty, recent)
+            val puzzle = (if (settings.onlinePuzzles) fetchOnline(targetRating, recent) else null)
+                ?: offline.pick(targetRating, recent)
                 ?: error("The bundled puzzle pack is empty")
             settings.rememberPuzzle(puzzle.id)
             mainThread.post { callback(puzzle) }
         }
     }
 
-    private fun fetchOnline(difficulty: Difficulty, recent: Set<String>): Puzzle? {
+    private fun fetchOnline(targetRating: Int, recent: Set<String>): Puzzle? {
         repeat(2) {
-            val puzzle = fetchLichessPuzzle(difficulty) ?: return null
-            if (puzzle.id !in recent) return puzzle
+            val puzzle = fetchLichessPuzzle(targetRating) ?: return null
+            if (puzzle.id !in recent && abs(puzzle.rating - targetRating) <= ONLINE_WINDOW) return puzzle
         }
         return null
     }
 
-    private fun fetchLichessPuzzle(difficulty: Difficulty): Puzzle? {
-        val connection = URI("$LICHESS_NEXT_PUZZLE?difficulty=${difficulty.apiName}").toURL().openConnection() as HttpURLConnection
+    private fun fetchLichessPuzzle(targetRating: Int): Puzzle? {
+        // Without an account Lichess picks puzzles around 1500, shifted by the difficulty
+        // parameter; ask for the band nearest the target and check the rating it sends back.
+        val difficulty = LICHESS_DIFFICULTIES.minBy { abs(it.second - targetRating) }.first
+        val connection = URI("$LICHESS_NEXT_PUZZLE?difficulty=$difficulty").toURL().openConnection() as HttpURLConnection
         return try {
             connection.connectTimeout = TIMEOUT_MS
             connection.readTimeout = TIMEOUT_MS
@@ -60,7 +64,7 @@ class PuzzleRepository(context: Context, private val settings: SettingsRepositor
                 pgn = game.getString("pgn"),
                 initialPly = puzzle.getInt("initialPly"),
                 solution = List(solution.length()) { solution.getString(it) },
-                rating = puzzle.optInt("rating", difficulty.targetRating),
+                rating = puzzle.optInt("rating", 0),
                 themes = if (themes == null) emptyList() else List(themes.length()) { themes.getString(it) },
             )
         } catch (e: Exception) {
@@ -84,5 +88,8 @@ class PuzzleRepository(context: Context, private val settings: SettingsRepositor
         const val LICHESS_NEXT_PUZZLE = "https://lichess.org/api/puzzle/next"
         const val PACK_ASSET = "puzzles.csv"
         const val TIMEOUT_MS = 5_000
+        /** How far from the target an online puzzle may be before the bundled pack is used. */
+        const val ONLINE_WINDOW = 150
+        val LICHESS_DIFFICULTIES = listOf("easiest" to 900, "easier" to 1200, "normal" to 1500, "harder" to 1800, "hardest" to 2100)
     }
 }
