@@ -132,6 +132,11 @@
   .lock-head { display: flex; align-items: center; gap: 12px; }
   .lock-head .icon { width: 36px; height: 36px; border-radius: 11px; font-size: 15px; }
   #puzzle.active { display: flex; flex-direction: column; }
+  /* The board fills the space left above the buttons and stays square: on a short screen it
+     gets smaller instead of squashed, and only scrolls once it would drop below 240px. */
+  #puzzle > * { flex-shrink: 0; }
+  #puzzle .board-fit { flex: 1 1 0; min-height: 240px; container-type: size; }
+  .board-fit .board { width: min(100cqw, 100cqh); margin: 0 auto; }
   #puzzle .row-btns { margin-top: auto; padding-top: 16px; }
   .lock-title { font-size: 34px; margin: 18px 0 8px; }
   .progress { display: flex; gap: 10px; margin: 16px 0 0; }
@@ -249,7 +254,7 @@
     <div class="progress" id="progress"></div>
     <div class="status" id="status"></div>
     <div class="meta"><span class="label" id="meta-left"></span><span class="label" id="meta-right"></span></div>
-    <div class="board" id="board"></div>
+    <div class="board-fit"><div class="board" id="board"></div></div>
     <div class="row-btns">
       <button class="btn outline" id="hint-btn">Hint</button>
       <button class="btn primary" id="next-btn" style="display:none">Next puzzle</button>

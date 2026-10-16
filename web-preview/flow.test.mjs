@@ -41,6 +41,15 @@ await page.waitForFunction(() => window.smarter.lock.session);
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${out}/3-lock-${scheme}.png` });
 
+// The board stays square and the lock screen fits without scrolling; on a short screen the
+// board shrinks instead of being squashed.
+const isSquare = () => page.$eval('#board', b => { const r = b.getBoundingClientRect(); return r.width > 200 && Math.abs(r.width - r.height) < 1; });
+const fits = () => page.$eval('#puzzle', s => s.scrollHeight <= s.clientHeight);
+check(await isSquare() && await fits(), 'board is square and lock screen fits');
+await page.setViewportSize({ width: 408, height: 640 });
+check(await isSquare() && await fits(), 'board shrinks but stays square on a short screen');
+await page.setViewportSize({ width: 408, height: 907 });
+
 // Helper: tap a square on the board.
 async function tapSquare(sq) {
   const box = await page.locator('#board').boundingBox();
