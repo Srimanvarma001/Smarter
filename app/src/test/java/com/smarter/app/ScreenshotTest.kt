@@ -33,7 +33,7 @@ import java.time.Duration
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "w408dp-h906dp-long-notround-port-xxhdpi-night")
+@Config(sdk = [35], qualifiers = "w408dp-h906dp-long-notround-port-night-xxhdpi")
 class ScreenshotTest {
     private val app get() = RuntimeEnvironment.getApplication() as SmarterApp
 
