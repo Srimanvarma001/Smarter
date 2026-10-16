@@ -40,6 +40,12 @@ kotlin {
     }
 }
 
+// ScreenshotTest writes its PNGs here. Declaring the folder as an output means a test run
+// restored from the build cache restores the screenshots too, instead of leaving none.
+tasks.withType<Test>().configureEach {
+    outputs.dir(layout.buildDirectory.dir("screenshots"))
+}
+
 dependencies {
     implementation(project(":core"))
 
